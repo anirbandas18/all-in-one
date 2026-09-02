@@ -1,29 +1,102 @@
 /**
  * BharatSuite theme layer for Nextcloud 33.
  *
- * Tokens come from bharatsuite-notifiled.css in Anirban's mockup pack, confirmed as
- * canonical on 2026-08-29. Nothing here restyles individual components: it maps the
- * BharatSuite palette onto the CSS variables Nextcloud already drives its whole
- * interface from, so every app is restyled at once and upgrades stay safe.
+ * THE SCREENS ARE THE SPEC. exports/png/ in the mockup pack holds a 2x render of
+ * every screen (1a sign-in through 2i antivirus), and those renders are what this
+ * file matches. Every value below is traceable to either bharatsuite-notifiled.css
+ * -- the stylesheet those screens are drawn with -- or to the inline style on the
+ * element itself in BharatSuite UI.dc.html.
+ *
+ * THE PACK CONTAINS TWO TRACKS AND THEY DISAGREE. This cost two rounds, so it is
+ * written down here:
+ *
+ *   BharatSuite UI.dc.html + bharatsuite-notifiled.css
+ *       33 screens (1a-2i, 3a, 4a-4n). Geist and Geist Mono, paper #f2efe9 ground,
+ *       saffron #cf6d14, radii 4/8/12/16, a CREAM header bar. This is the track
+ *       exports/png/ was rendered from, and therefore the one that ships.
+ *
+ *   BharatSuite UI (Organic).dc.html + _ds/organic-*/styles.css + bharatsuite-theme.css
+ *       6 screens (1a-1f only). Figtree and Caprasimo, #faf5ec ground, saffron
+ *       #e58f2b, pills (103 separate border-radius:999px declarations), a NAVY
+ *       #0e2c60 header bar.
+ *
+ * An earlier revision of this file implemented the Organic track, on the reading
+ * that a design system outranks a mockup. It does not outrank the rendered screens
+ * the design was signed off on: Organic re-skins six of the thirty-three, and the
+ * export pack is entirely Notifiled. The navy bar, the pill navigation and Caprasimo
+ * all came from that reading and are all reverted here.
+ *
+ * Nothing in the token layer restyles individual components: it maps the palette onto
+ * the CSS variables Nextcloud already drives its whole interface from, so every app
+ * is restyled at once and upgrades stay safe.
  *
  * Loaded on every page, login included, by BrandingAssetsListener.
  *
- * Deliberately NOT overridden:
- *   --default-clickable-area  Notifiled specifies 34px against Nextcloud's 44px.
- *                             44px is an accessibility floor for touch targets; the
- *                             mockups are desktop-only, so shrinking it would trade a
- *                             real usability property for a visual one.
- *   --header-height           Changing it shifts every fixed-position calculation in
- *                             core and in apps. Not worth it for 6px.
+ * Deliberately NOT following the spec, in one place:
+ *   --clickable-area  Notifiled sets 34px; Nextcloud's default is 44px, which is the
+ *                     WCAG target-size floor. The mockups are desktop-only renders,
+ *                     so honouring 34px would trade a real accessibility property
+ *                     for a visual one. 44px stays.
  */
 
-/* ---- Inter, self-hosted. Substitute for Geist, which is not open source. -------- */
+/* ---- Geist and Geist Mono, self-hosted -------------------------------------------
+ *
+ * bharatsuite-notifiled.css asks for "Geist" as both --font-heading and --font-body,
+ * and "Geist Mono" as --font-mono. One text face, not two: the display treatment in
+ * the screens is Geist at 600 and -0.05em tracking, not a second typeface. Both are
+ * SIL OFL.
+ *
+ * SELF-HOSTED, NOT @import'd, and this is a product requirement rather than a
+ * preference. The design system stylesheet pulls its faces from fonts.googleapis.com;
+ * BharatSuite's whole claim is that data stays in Indian regions, and a Google Fonts
+ * @import reports every user's IP to a US CDN on every page load. It also makes a
+ * self-hosted stack depend on outbound internet.
+ *
+ * Variable files, so one request covers every weight the screens use (400/500/600/650).
+ * Two subsets each, latin and latin-ext, with the unicode-range Google serves them
+ * under, so a page of plain English downloads only the 52 KB latin pair of the 83 KB
+ * total. Neither face covers Devanagari; scripts outside these ranges fall through to
+ * the system stack.
+ */
 @font-face {
 	font-family: 'BharatSuite Sans';
 	font-style: normal;
-	font-weight: 100 900;           /* variable: one file covers every weight */
+	font-weight: 300 900;           /* variable: one file covers every weight */
 	font-display: swap;
-	src: url('../fonts/inter-var.woff2') format('woff2-variations');
+	src: url('../fonts/geist-latin.woff2') format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+		U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+		U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'BharatSuite Sans';
+	font-style: normal;
+	font-weight: 300 900;
+	font-display: swap;
+	src: url('../fonts/geist-latin-ext.woff2') format('woff2');
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+		U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+		U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+	font-family: 'BharatSuite Mono';
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url('../fonts/geist-mono-latin.woff2') format('woff2');
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+		U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+		U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+	font-family: 'BharatSuite Mono';
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+	src: url('../fonts/geist-mono-latin-ext.woff2') format('woff2');
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+		U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+		U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 /**
@@ -48,52 +121,111 @@ body[data-themes],
 body[data-theme-light],
 body[data-theme-default],
 body[data-theme-light-highcontrast] {
-	/* -- BharatSuite palette (Notifiled) ------------------------------------- */
-	--bs-paper:        #f2efe9;
-	--bs-surface:      #f8f6f1;
+	/* -- The Notifiled palette, verbatim from bharatsuite-notifiled.css -------- */
 
-	/* Card surface. Declared per theme because it has to sit one step away from
-	   the ground in each -- lighter than paper in light, lighter than ink in dark.
-	   No Nextcloud token moves in that direction in both, so using one (or worse,
-	   a fixed literal) leaves the dashboard's cards light on a dark page. */
-	--bs-card:         #f8f6f1;
-	--bs-surface-sunk: #ece8e0;
-	--bs-ink:          #16202b;
+	/* Two grounds, and the distinction matters everywhere below: --bs-paper is the
+	   page, --bs-surface is anything raised off it. In the screens the dashboard
+	   cards, the Files table and the sign-in card are all surface on paper, a 6-unit
+	   step that reads as a hairline lift rather than as a panel. */
+	--bs-paper:        #f2efe9;   /* --paper        / --color-bg      */
+	--bs-paper-strong: #e7e2d8;   /* --paper-strong: sunk wells, the header search  */
+	--bs-surface:      #f8f6f1;   /* --color-surface / --color-neutral-100         */
+	--bs-card:         var(--bs-surface);
+	--bs-ink:          #16202b;   /* --color-text   / --color-neutral-900         */
 
-	--bs-saffron:      #cf6d14;
+	/* Saffron: the ONLY action colour. Every button, link and active state. */
+	--bs-saffron:      #cf6d14;   /* -500 */
 	--bs-saffron-600:  #ae5711;
+	--bs-saffron-700:  #8c450f;
 	--bs-saffron-100:  #fbf1e6;
 	--bs-saffron-200:  #f4ddc2;
+	--bs-saffron-400:  #dc9a53;
 
-	--bs-green:        #1c7a53;
+	/* Selection. Its own tokens because the Nextcloud ones cannot be trusted inside a
+	   selected row -- see the note on the selected-row rule below. */
+	--bs-sel-bg:       var(--bs-saffron-100);
+	--bs-sel-text:     var(--bs-ink);
+	--bs-sel-subtext:  var(--bs-n700);
+
+	/* Green: verified, in-country. The residency badge and every success state. */
+	--bs-green:        #1c7a53;   /* -500 */
+	--bs-green-600:    #166344;
+	--bs-green-400:    #61ab8c;
 	--bs-green-100:    #e9f3ee;
+	/* The Dashboard's Sovereignty status card (screen 1b) is filled solid with this
+	   -700 step and stays that colour in both themes -- like the residency badge,
+	   it is a fixed dark-green chip rather than a surface that inverts, so it gets
+	   no dark-mode override below. --bs-green-pale is its own text: the labels and
+	   body copy painted on that fill, always pale mint regardless of site theme. */
+	--bs-green-700:    #123f2e;
+	--bs-green-pale:   #bfe0cf;
 
+	/* Recent activity (screen 1b) is a full light-green PANEL, not a small tinted
+	   row -- unlike the raw ramp above, a light panel this size needs to invert in
+	   dark mode the same way --color-primary-element-light does, so these two are
+	   semantic tokens with their own dark-block overrides rather than aliases. */
+	--bs-green-light-bg:   var(--bs-green-100);
+	--bs-green-light-text: var(--bs-green-700);
+
+	/* Blue: the wordmark and informational text. Note that unlike the Organic
+	   track this palette does NOT put blue in the chrome -- the header is paper.
+	   -500 is the readable step for links and info text; -700 is the wordmark. */
 	--bs-blue:         #23508c;
 	--bs-blue-700:     #1c4478;
+	--bs-blue-600:     #234d7f;
+	--bs-blue-500:     #33639f;
+	--bs-blue-400:     #6183b0;
 	--bs-blue-100:     #eaeef5;
 
+	/* Neutrals. A warm-grey ramp with a slight blue turn at the dark end, which is
+	   what lets --bs-ink double as neutral-900. */
+	--bs-n200:         #ece8e0;
 	--bs-n300:         #ddd8cd;
 	--bs-n400:         #b9b5ab;
 	--bs-n500:         #8d8b83;
 	--bs-n600:         #6a6f74;
 	--bs-n700:         #4a5560;
 
+	/**
+	 * The chrome fill: the header bar. In these screens it is
+	 * `background:var(--paper);border-bottom:1px solid var(--color-divider)` -- the
+	 * same colour as the page, separated by a hairline only.
+	 *
+	 * Kept as its own variable rather than inlining --bs-paper because the dark
+	 * theme lifts the bar off the ground while light leaves it flush.
+	 */
+	--bs-chrome:       var(--bs-paper);
+	--bs-chrome-text:  var(--bs-ink);
+
+	/**
+	 * The tricolour device that opens every screen: 6px, saffron / paper / green.
+	 *
+	 * The middle third is --paper, NOT white. It reads as a gap in the strip that
+	 * lines up with the header behind it, and a white segment on a cream page shows
+	 * up as a bright bar instead.
+	 */
+	--bs-tricolour: linear-gradient(90deg,
+		var(--bs-saffron) 0 33.33%,
+		var(--bs-paper) 33.33% 66.66%,
+		var(--bs-green) 66.66%);
+
+	/* The mono face, for the micro-labels. Nextcloud has no variable for a second
+	   face, so this one is ours and is applied by selector further down. */
+	--bs-mono: 'BharatSuite Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
 	/* -- Nextcloud surfaces --------------------------------------------------- */
 	--color-main-background:       var(--bs-paper);
 	--color-main-background-rgb:   242, 239, 233;
 	--color-main-background-blur:  #f2efe9cc;
-	--color-background-hover:      var(--bs-surface-sunk);
-	--color-background-dark:       var(--bs-surface-sunk);
+	--color-background-hover:      var(--bs-n200);
+	--color-background-dark:       var(--bs-paper-strong);
 	--color-background-darker:     var(--bs-n300);
 	/**
-	 * The "plain" ground is what Nextcloud paints the header and the login page
-	 * with. Stock Nextcloud makes it the primary colour; the mockups make it the
-	 * paper, with the header separated by a hairline instead of a fill.
-	 *
-	 * This was deep blue until the body-level fix above landed, and nothing showed
-	 * it, because theming's own value was winning on <body> the whole time. The
-	 * moment our tokens actually reached the body the header turned blue and ate
-	 * the wordmark: "Bharat" is #23508c on a #1c4478 header.
+	 * The "plain" ground. Core reads it as
+	 * `background-color: var(--color-background-plain, #0082c9)` and the declaration
+	 * lands on <body>, so it is the page, not the bar -- setting it to a chrome
+	 * colour turns the whole page that colour and leaves the app content floating on
+	 * it. The bar is painted on #header itself, further down.
 	 */
 	--color-background-plain:      var(--bs-paper);
 	--color-background-plain-text: var(--bs-ink);
@@ -104,34 +236,57 @@ body[data-theme-light-highcontrast] {
 	--color-text-lighter:          var(--bs-n500);
 	--color-text-maxcontrast:      var(--bs-n600);
 
-	/* -- Primary. Saffron is the action colour throughout the mockups. --------- */
-	--color-primary:                    var(--bs-saffron);
-	--color-primary-text:               #ffffff;
-	--color-primary-element:            var(--bs-saffron);
-	--color-primary-element-text:       #ffffff;
-	--color-primary-element-hover:      var(--bs-saffron-600);
-	--color-primary-element-light:      var(--bs-saffron-100);
+	/* -- Primary. Saffron is the action colour throughout the screens. ---------
+	 *
+	 * --color-primary-text is #fff9f2, not #ffffff. It is the value the screens use
+	 * on every saffron fill (`color:#fff9f2` on .btn-primary and on the active nav
+	 * pill), a warm off-white that stops the button reading as a hole punched in the
+	 * page. It appears 16 times in the export and is the single most-used literal in
+	 * it.
+	 */
+	--color-primary:                     var(--bs-saffron);
+	--color-primary-text:                #fff9f2;
+	--color-primary-element:             var(--bs-saffron);
+	--color-primary-element-text:        #fff9f2;
+	--color-primary-element-hover:       var(--bs-saffron-600);
+	--color-primary-element-light:       var(--bs-saffron-100);
 	--color-primary-element-light-hover: var(--bs-saffron-200);
-	--color-primary-element-light-text: var(--bs-saffron-600);
+	/* The label on a tinted (light-primary) fill. Screen 2c pairs
+	   `background:var(--color-accent-100)` with `color:var(--color-accent-700)`, so
+	   this is the 700 step rather than the 600 it held before. */
+	--color-primary-element-light-text:  var(--bs-saffron-700);
 
-	/* -- Borders. Notifiled uses hairlines, not filled dividers. --------------- */
-	--color-border:             #16202b1f;
-	--color-border-dark:        #16202b33;
+	/* -- Borders. Hairlines, not filled dividers. --color-divider in the screens
+	      is #16202b30, an ink alpha, and every card and table rule uses it. ---- */
+	--color-border:             #16202b30;
+	--color-border-dark:        #16202b47;
 	--color-border-maxcontrast: var(--bs-n500);
 
 	/* -- Status --------------------------------------------------------------- */
-	--color-success:       var(--bs-green);
+	--color-success:        var(--bs-green);
 	--color-border-success: var(--bs-green);
-	--color-warning:       var(--bs-saffron);
-	--color-info:          var(--bs-blue);
+	--color-warning:        var(--bs-saffron);
+	--color-info:           var(--bs-blue-500);
 
-	/* -- Geometry, from the Notifiled scale ------------------------------------ */
+	/**
+	 * -- Geometry -------------------------------------------------------------
+	 *
+	 * bharatsuite-notifiled.css declares --radius-sm 4px / --radius-md 12px /
+	 * --radius-lg 16px, and its own comment maps them: "Nextcloud 32: element 8,
+	 * container 12, container-large 16". Buttons and inputs are 8px, hardcoded on
+	 * .btn and .input, and the active nav pill in the header bar is 8px too.
+	 *
+	 * The 999px pills of the previous revision came from the Organic track and are
+	 * gone. Only genuinely circular things -- avatars, status dots -- keep 999px,
+	 * which is what --border-radius-pill is for.
+	 */
 	--border-radius-small:           4px;
 	--border-radius:                 8px;
 	--border-radius-element:         8px;
 	--border-radius-large:           12px;
 	--border-radius-container:       12px;
 	--border-radius-container-large: 16px;
+	--border-radius-pill:            999px;
 
 	/* -- Type ------------------------------------------------------------------ */
 	--font-face: 'BharatSuite Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
@@ -142,9 +297,14 @@ body[data-theme-light-highcontrast] {
  * Dark theme. Nextcloud stamps these on <body>, so the selectors have to match all
  * three of its modes: explicit dark, and the two automatic ones.
  *
- * The palette inverts around the same hues rather than being naively lightened:
- * ink becomes the ground, paper becomes the text, and saffron/green/blue lift a step
- * so they keep their contrast against a dark surface.
+ * SLATE, not warm, and this is a reversal of the previous revision on purpose. That
+ * one derived a warm brown-black from Organic's #201e1d ink and its comment argued
+ * that a slate dark theme "read as a different product". Under this palette the ink
+ * IS slate -- #16202b, a blue-black, doubling as --color-neutral-900 -- so deepening
+ * the palette's own ink is what keeps the two themes the same product.
+ *
+ * Accents lift one ramp step so they hold their contrast on a dark ground: saffron
+ * to -400, green to -400, blue to -400.
  */
 body[data-theme-dark],
 body[data-theme-dark-highcontrast],
@@ -152,52 +312,75 @@ body.theme--dark {
 	--color-main-background:       #12191f;
 	--color-main-background-rgb:   18, 25, 31;
 	--color-main-background-blur:  #12191fcc;
-	--color-background-hover:      #222d38;
-	--color-background-dark:       #1a232c;
-	--color-background-darker:     #222d38;
+	--color-background-hover:      #25303b;
+	--color-background-dark:       #1b242e;
+	--color-background-darker:     #25303b;
 
-	--color-main-text:             #eee9e0;
-	--color-text-light:            #a9b3bd;
-	--color-text-lighter:          #78838e;
-	--color-text-maxcontrast:      #a9b3bd;
+	--color-main-text:             #f2efe9;
+	--color-text-light:            #b9b5ab;
+	--color-text-lighter:          #8d8b83;
+	--color-text-maxcontrast:      #b9b5ab;
 
-	--color-primary:               #e8933f;
-	--color-primary-element:       #e8933f;
-	--color-primary-element-text:  #16202b;
-	--color-primary-element-hover: #cf6d14;
-	--color-primary-element-light: #3a2410;
-	--color-primary-element-light-text: #e8933f;
+	--color-primary:                    #dc9a53;
+	--color-primary-element:            #dc9a53;
+	--color-primary-element-text:       #16202b;
+	--color-primary-element-hover:      #cf6d14;
+	--color-primary-element-light:      #3f2008;
+	--color-primary-element-light-text: #dc9a53;
 
-	--color-border:                #eee9e024;
-	--color-border-dark:           #eee9e03d;
-	--color-border-maxcontrast:    #78838e;
+	--color-border:                #f2efe924;
+	--color-border-dark:           #f2efe93d;
+	--color-border-maxcontrast:    #8d8b83;
 
-	--color-success:               #45ad81;
-	--color-warning:               #e8933f;
-	--color-info:                  #6f9ad6;
-	--bs-card:                     #1a232c;
+	--color-success:               #61ab8c;
+	--color-warning:               #dc9a53;
+	--color-info:                  #6183b0;
+
+	/* Card surface. Declared per theme because it has to sit one step away from the
+	   ground in each -- lighter than paper in light, lighter than ink in dark. No
+	   Nextcloud token moves in that direction in both. */
+	--bs-card:                     #1b242e;
+	--bs-sel-bg:                   #3f2008;
+	--bs-sel-text:                 #f2efe9;
+	--bs-sel-subtext:              #b9b5ab;
+
+	/* Recent activity's panel fill and label -- see the light-block comment by
+	   --bs-green-light-bg. A muted dark green, distinct enough from --bs-card's
+	   grey-blue to still read as its own tinted surface; the label lifts to -400,
+	   same step every other accent takes in this block. */
+	--bs-green-light-bg:           #1c2b25;
+	--bs-green-light-text:         #61ab8c;
+
+	/* In light the bar is flush with the page; here it is lifted one step, because a
+	   hairline alone does not separate two near-black surfaces. */
+	--bs-chrome:                   #1b242e;
+	--bs-chrome-text:              #f2efe9;
+	--bs-paper:                    #12191f;
+	/* The sunk well: the header search box paints from this. Left at its light
+	   value it was a #e7e2d8 slab glowing on the dark bar. */
+	--bs-paper-strong:             #25303b;
 
 	/**
-	 * App icons ship as white SVGs and Nextcloud inverts them to black through
-	 * this variable, which theming derives from its *static* background_color --
-	 * a light paper -- so it stays invert(100%) in dark mode too. Black icons on
-	 * a cream header are right; the same icons on the ink header rendered at
-	 * rgb(4,5,7) against rgb(18,25,31), which is why the header looked empty.
+	 * App icons ship as white SVGs and Nextcloud inverts them to black through this
+	 * variable, which theming derives from its *static* background_color -- a light
+	 * paper -- so it stays invert(100%) in dark mode too. Black icons on the cream
+	 * light-mode bar are right; the same icons on a dark bar render black on black.
 	 *
-	 * Same root cause as the header wordmark, one variable along: the invert has
-	 * to follow the colour scheme, not the theming setting.
+	 * `no` is core's own sentinel for "do not inject a filter": it is not a valid
+	 * <filter-value>, so the declaration is invalid at computed-value time and
+	 * filter falls back to none.
 	 */
 	--background-image-invert-if-bright: no;
 	--background-invert-if-bright: no;
 
-	/* theming's dark.css redeclares these two at [data-theme-dark]. Anything our
-	   dark block leaves out silently reverts to stock: the typeface fell back to
+	/* theming's dark.css redeclares these at [data-theme-dark]. Anything our dark
+	   block leaves out silently reverts to stock: the typeface fell back to
 	   system-ui, and the page ground stayed the light `background_color` while the
 	   panels went dark, splitting the page across two themes. */
 	--font-face: 'BharatSuite Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
 		Roboto, Helvetica, Arial, sans-serif;
 	--color-background-plain:      #12191f;
-	--color-background-plain-text: #eee9e0;
+	--color-background-plain-text: #f2efe9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -205,52 +388,48 @@ body.theme--dark {
 		--color-main-background:       #12191f;
 		--color-main-background-rgb:   18, 25, 31;
 		--color-main-background-blur:  #12191fcc;
-		--color-background-hover:      #222d38;
-		--color-background-dark:       #1a232c;
-		--color-background-darker:     #222d38;
+		--color-background-hover:      #25303b;
+		--color-background-dark:       #1b242e;
+		--color-background-darker:     #25303b;
 
-		--color-main-text:             #eee9e0;
-		--color-text-light:            #a9b3bd;
-		--color-text-lighter:          #78838e;
-		--color-text-maxcontrast:      #a9b3bd;
+		--color-main-text:             #f2efe9;
+		--color-text-light:            #b9b5ab;
+		--color-text-lighter:          #8d8b83;
+		--color-text-maxcontrast:      #b9b5ab;
 
-		--color-primary:               #e8933f;
-		--color-primary-element:       #e8933f;
-		--color-primary-element-text:  #16202b;
-		--color-primary-element-hover: #cf6d14;
-		--color-primary-element-light: #3a2410;
-		--color-primary-element-light-text: #e8933f;
+		--color-primary:                    #dc9a53;
+		--color-primary-element:            #dc9a53;
+		--color-primary-element-text:       #16202b;
+		--color-primary-element-hover:      #cf6d14;
+		--color-primary-element-light:      #3f2008;
+		--color-primary-element-light-text: #dc9a53;
 
-		--color-border:                #eee9e024;
-		--color-border-dark:           #eee9e03d;
-		--color-border-maxcontrast:    #78838e;
+		--color-border:                #f2efe924;
+		--color-border-dark:           #f2efe93d;
+		--color-border-maxcontrast:    #8d8b83;
 
-		--color-success:               #45ad81;
-		--color-warning:               #e8933f;
-		--color-info:                  #6f9ad6;
-		--bs-card:                     #1a232c;
+		--color-success:               #61ab8c;
+		--color-warning:               #dc9a53;
+		--color-info:                  #6183b0;
 
-		/**
-		 * App icons ship as white SVGs and Nextcloud inverts them to black through
-		 * this variable, which theming derives from its *static* background_color --
-		 * a light paper -- so it stays invert(100%) in dark mode too. Black icons on
-		 * a cream header are right; the same icons on the ink header rendered at
-		 * rgb(4,5,7) against rgb(18,25,31), which is why the header looked empty.
-		 *
-		 * Same root cause as the header wordmark, one variable along: the invert has
-		 * to follow the colour scheme, not the theming setting.
-		 */
+		--bs-card:                     #1b242e;
+		--bs-sel-bg:                   #3f2008;
+		--bs-sel-text:                 #f2efe9;
+		--bs-sel-subtext:              #b9b5ab;
+		--bs-green-light-bg:           #1c2b25;
+		--bs-green-light-text:         #61ab8c;
+		--bs-chrome:                   #1b242e;
+		--bs-chrome-text:              #f2efe9;
+		--bs-paper:                    #12191f;
+		--bs-paper-strong:             #25303b;
+
 		--background-image-invert-if-bright: no;
 		--background-invert-if-bright: no;
 
-		/* theming's dark.css redeclares these two at [data-theme-dark]. Anything our
-		   dark block leaves out silently reverts to stock: the typeface fell back to
-		   system-ui, and the page ground stayed the light `background_color` while the
-		   panels went dark, splitting the page across two themes. */
 		--font-face: 'BharatSuite Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI',
 			Roboto, Helvetica, Arial, sans-serif;
 		--color-background-plain:      #12191f;
-		--color-background-plain-text: #eee9e0;
+		--color-background-plain-text: #f2efe9;
 	}
 }
 
@@ -273,18 +452,13 @@ body.theme--dark {
  * core/css/guest.css paints the login body with --color-background-plain, which the
  * theming app pins to its static `background_color` setting on a body[data-theme-*]
  * selector. That beats a :root declaration on specificity, and it does not follow the
- * colour scheme -- so without this the ground stays light in dark mode while the card
- * and the logo both go dark. The logo is the visible casualty: the dark variant's
- * "Suite" is paper-coloured and vanishes against a paper ground.
- *
- * An #id selector outranks theming's, so re-pointing these two at our own tokens
- * makes the whole login screen follow one theme instead of two.
+ * colour scheme. An #id selector outranks theming's, so re-pointing these two at our
+ * own tokens makes the whole login screen follow one theme instead of two.
  *
  * The login page is always LIGHT, by design and by Nextcloud's own construction: its
  * body carries only id="body-login" and data-themes, never a data-theme-* state,
  * because there is no signed-in user whose preference could be read. So only the base
- * block above applies here and the dark blocks never match. This matches the sign-in
- * screen in the mockups, which is light.
+ * block above applies here and the dark blocks never match. Screen 1a is light.
  */
 #body-login {
 	--color-background-plain:      var(--color-main-background);
@@ -292,14 +466,15 @@ body.theme--dark {
 }
 
 /**
- * The tricolour rule that opens every mockup screen.
+ * The tricolour rule that opens every screen. 6px, per the inline style on the strip
+ * in every frame: `height:6px;background:var(--tricolour)`.
  *
  * Hung off the body rather than off #header. As a child of #header the rule was
  * painted correctly on every app except the Dashboard, which lays a full-bleed
  * background over the header's stacking context and swallowed it -- the computed
  * style said the pseudo-element was there, and the pixels at y=0 were still paper.
- * Fixed to the viewport on the body, it is above every app's chrome by
- * construction and does not depend on how any one app stacks itself.
+ * Fixed to the viewport on the body, it is above every app's chrome by construction
+ * and does not depend on how any one app stacks itself.
  */
 #body-user::before,
 #body-login::before,
@@ -308,15 +483,10 @@ body.theme--dark {
 	content: '';
 	position: fixed;
 	inset: 0 0 auto 0;
-	height: 3px;
+	height: 6px;
 	z-index: 9999;
 	pointer-events: none;
-	background: linear-gradient(
-		90deg,
-		var(--bs-saffron) 0 33.33%,
-		#ffffff 33.33% 66.66%,
-		var(--bs-green) 66.66%
-	);
+	background: var(--bs-tricolour);
 }
 
 
@@ -324,7 +494,7 @@ body.theme--dark {
  * Component layer
  *
  * Everything above is tokens: reassign a variable, and Nextcloud restyles itself.
- * Below are the places where the mockups differ from what Nextcloud draws from
+ * Below are the places where the screens differ from what Nextcloud draws from
  * those tokens, and no variable exists to express the difference.
  *
  * The rule for this layer is Anirban's: match the look and feel without fighting
@@ -337,29 +507,69 @@ body.theme--dark {
 /* -- Header ---------------------------------------------------------------- */
 
 /**
- * Nextcloud inverts the logo, because its stock header is a saturated primary
- * colour and the mark has to read as white on it. Our header is paper, so the
- * invert turned the wordmark's blue into pale orange on cream -- the "washed out
- * logo" was this filter, not the SVG.
+ * THE CREAM BAR.
  *
- * Both variants of the mark are already colour-correct for their own ground, so
- * the filter has nothing left to do.
+ * Screen 1b's header is, verbatim:
+ *
+ *   height:50px; background:var(--paper);
+ *   border-bottom:1px solid var(--color-divider);
+ *   gap:var(--space-4); padding:0 var(--space-3)
+ *
+ * Nextcloud leaves #header transparent and lets the body ground show through, which
+ * gets the colour right by accident but loses the hairline -- and the hairline is
+ * the only thing separating the bar from the page here. So both are painted.
+ *
+ * Scoped away from .header-guest: on the login screen #header is not a bar across
+ * the top, it is the block that holds the wordmark, so an unscoped rule draws a
+ * hairline across the middle of the sign-in page.
+ */
+#header:not(.header-guest) {
+	/**
+	 * !important is load-bearing and cannot be avoided. apps/dashboard/css/dashboard.css
+	 * ships `#header{background:rgba(0,0,0,0) !important}` so the Dashboard's own
+	 * full-bleed background can show through the bar. Without the flag the bar was
+	 * correct in every app and transparent on the Dashboard, which is the one page
+	 * most likely to be screenshotted.
+	 *
+	 * Matching an !important declaration needs the flag plus at least equal
+	 * specificity: theirs is (1,0,0), the :not() here makes ours (1,1,0).
+	 *
+	 * Deliberately still losing to `#body-user.theme--highcontrast #header`, which is
+	 * also (1,1,0) !important and declared in the same file. An accessibility theme
+	 * should outrank a brand colour, so the tie going to source order is the right
+	 * outcome rather than something to escalate past.
+	 */
+	background-color: var(--bs-chrome) !important;
+	border-bottom: 1px solid var(--color-border);
+	box-sizing: border-box;
+	--color-background-plain-text: var(--bs-chrome-text);
+}
+
+/**
+ * The app-menu icons are white SVGs painted with
+ * `.app-menu-icon__icon { filter: var(--background-image-invert-if-bright) }`.
+ * Theming derives that from its static background_color -- the cream paper -- so it
+ * computes to invert(100%), which turns them black. On a cream bar that is exactly
+ * right, so light mode leaves it alone; it is the dark blocks above that have to
+ * switch it off.
+ *
+ * This is the opposite of what the previous revision needed, and worth stating: it
+ * had to force the filter off in LIGHT because its bar was navy. The bar going back
+ * to paper is what makes the default correct again.
+ */
+
+/**
+ * Nextcloud sets `filter: var(--image-logoheader-custom,
+ * var(--background-image-invert-if-bright))` on the header mark, so a bright ground
+ * inverts it -- right for the stock white logo, wrong for ours, which turns the
+ * wordmark's blue into pale orange on cream. The first variable is the escape hatch
+ * core provides for exactly this case, so no override of `filter` itself is needed.
  */
 #header #nextcloud .logo {
-	/**
-	 * Nextcloud sets `filter: var(--image-logoheader-custom,
-	 * var(--background-image-invert-if-bright))` on the header mark, so a bright
-	 * ground inverts it -- which is right for the stock white logo and wrong for
-	 * ours, turning the wordmark's blue into pale orange on cream. The first
-	 * variable is the escape hatch core provides for exactly this case, so no
-	 * override of the filter itself is needed.
-	 */
 	--image-logoheader-custom: none;
 
-	/**
-	 * Core sizes the mark for a 62px square icon. A wordmark needs the width, and
-	 * #nextcloud's leading padding has to clear it -- core pairs 62px with 86px.
-	 */
+	/* Core sizes the mark for a 62px square icon. A wordmark needs the width, and
+	   #nextcloud's leading padding has to clear it -- core pairs 62px with 86px. */
 	width: 148px;
 }
 
@@ -368,65 +578,537 @@ body.theme--dark {
 }
 
 /**
- * The mockups separate the header from the page with a hairline, not a shadow.
- *
- * Scoped away from .header-guest. On the login screen #header is not a bar across
- * the top -- it is the 700px block that holds the wordmark -- so an unscoped rule
- * drew a rule straight across the page behind the sign-in card.
+ * The Dashboard's scroll fade: a 70px dark gradient it slides down over the top of
+ * the page as you scroll, to keep the header legible against a photograph. Against
+ * a flat cream bar it is a grey smear across the wordmark.
  */
-#header:not(.header-guest) {
-	border-bottom: 1px solid var(--color-border);
+#body-user #header::before {
+	display: none;
 }
+
+/**
+ * TEXT NAVIGATION. The bar in every screen is a row of app names, not icons:
+ *
+ *   BharatSuite/  Dashboard  Files  Mail  Talk  Photos  Calendar  Contacts ...
+ *
+ * with the current app filled saffron. The inline styles are, per entry:
+ *
+ *   active    font:600 12px; color:#fff9f2; background:var(--color-accent);
+ *             border-radius:8px; padding:6px 11px; white-space:nowrap
+ *   inactive  font:500 12px; color:var(--color-neutral-700); padding:6px 7px
+ *   row       display:flex; align-items:center; gap:2px; min-width:0; overflow:hidden
+ *
+ * Nextcloud renders the same list icon-only: a 50px <li>, a 46x46 <a>, the icon, and
+ * a label that is already in the DOM but parked out of the way -- `position:absolute;
+ * opacity:0; top:23px; transform:translateX(-23px)`. So this is a re-layout of
+ * existing markup, not injected nodes: unpark the label, drop the icon, let the
+ * entries size to their text.
+ *
+ * `min-width:0; overflow:hidden` on the row is copied from the mockup rather than
+ * invented, and it is what makes this safe. Nextcloud's AppMenu.vue decides how many
+ * entries to show by dividing the available width by a fixed 50px per entry and
+ * moving the rest into its overflow menu. CSS cannot change that arithmetic, so with
+ * wider entries its count is optimistic -- the row clips at the container edge
+ * instead of pushing into the account menu, which is exactly what the mockup's own
+ * container does at 1320px. The overflow menu keeps working for whatever it hid.
+ */
+#header .app-menu-main {
+	min-width: 0;
+	overflow: hidden;
+	gap: 2px;
+	/**
+	 * Centre the row in the bar. Core has no need for this -- its entries are 46px
+	 * inside a 50px <li> and fill it -- but once the link is height:auto it collapses
+	 * to its text and, without this, sits against the top of the bar. That put the
+	 * saffron block under the 6px tricolour strip, which is fixed at z-index 9999 and
+	 * overlays the first 6px of the header.
+	 */
+	align-items: center;
+}
+
+#header .app-menu-entry {
+	width: auto;
+	flex: none;
+	/* list-item by default, which ignores align-items on the child. */
+	display: flex;
+	align-items: center;
+	height: auto;
+}
+
+#header .app-menu-entry__link {
+	width: auto;
+	height: auto;
+	min-width: 0;
+	padding: 6px 7px;
+	border-radius: var(--border-radius-element);
+}
+
+/* Icon-only is the layout being replaced. */
+#header .app-menu-entry__icon {
+	display: none;
+}
+
+/**
+ * Unpark the label. Every one of these declarations undoes a specific part of how
+ * core hides it (see the computed style quoted above); leaving any one out leaves the
+ * label invisible or stacked under the row.
+ */
+#header .app-menu-entry__label {
+	position: static;
+	opacity: 1;
+	width: auto;
+	height: auto;
+	transform: none;
+	overflow: visible;
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.25;
+	/**
+	 * The screens say `color:var(--color-neutral-700)`, which is #4a5560 -- and that
+	 * is exactly what --color-text-light resolves to in the light theme, so this is
+	 * the spec value rather than an approximation of it.
+	 *
+	 * Going through the token rather than naming --bs-n700 directly is the point: the
+	 * literal is a light-theme neutral, and on the dark bar it was a dark grey on
+	 * near-black, which left every inactive app name all but invisible.
+	 */
+	color: var(--color-text-light);
+	white-space: nowrap;
+}
+
+#header .app-menu-entry:hover .app-menu-entry__link {
+	background-color: var(--color-background-hover);
+}
+
+#header .app-menu-entry--active .app-menu-entry__link {
+	background-color: var(--color-primary-element);
+	padding: 6px 11px;
+}
+
+#header .app-menu-entry--active .app-menu-entry__label {
+	font-weight: 600;
+	color: var(--color-primary-element-text);
+}
+
+/* The 10x5px dash core draws on the <li> to mark the current app; the saffron fill
+   replaces it. */
+#header .app-menu-entry--active::before {
+	display: none;
+}
+
+/**
+ * The search box. Every screen carries a labelled field in the bar rather than a bare
+ * magnifier -- "Search everything" on the dashboard, "Search in Files" in Files:
+ *
+ *   width:150px; background:var(--paper-strong);
+ *   border:1px solid var(--color-divider); border-radius:8px; padding:8px 12px;
+ *   display:flex; align-items:center; gap:8px;
+ *   font:400 13px; color:var(--color-neutral-600)
+ *
+ * Nextcloud's unified search is a 50px square icon button that opens a modal. The box
+ * is the same control re-proportioned, so the behaviour is untouched.
+ *
+ * The label is `attr(aria-label)`, NOT a literal. The mockup's string is English, and
+ * hardcoding it in CSS would leave the one visible word in the chrome untranslated in
+ * a product built for a multilingual market. aria-label on this button is Nextcloud's
+ * own translated "Unified search", so attr() gets a localised label for free.
+ *
+ * It does not double up for screen readers: aria-label replaces the button's
+ * accessible name outright, so the generated text is not part of it.
+ */
+/**
+ * The box is three elements deep and all three carry the 50px square, so widening
+ * only the button left it overflowing two parents that were still 50px -- the label
+ * spilled to the right, straight over the notification and contacts icons.
+ *
+ * These two need no !important: core sizes them from `.header-menu`, a bare class,
+ * which both of these selectors already outrank.
+ */
+#header .unified-search-menu,
+#header #unified-search.header-menu {
+	width: 150px;
+}
+
+#header #unified-search .header-menu__trigger {
+	/**
+	 * !important on all four sizing properties, and it is load-bearing. The trigger is
+	 * an NcButton carrying `button-vue--icon-only`, whose square geometry is declared
+	 * with the flag -- measured on the live page, the button computed to 50x50 with
+	 * `padding`, `background` and `border-radius` from this very rule applied, so the
+	 * override was losing on the flag alone rather than on specificity.
+	 *
+	 * height/min-height need the same !important as width/min-width: without it the
+	 * box stayed a 50px square vertically too, flush against the header's top and
+	 * bottom edges instead of sitting as a centred 34px pill -- the mismatch the
+	 * mockup's labelled field never has, since NcButton's scoped rule sets both axes.
+	 *
+	 * `overflow: visible` matters just as much: the button ships `overflow: hidden`,
+	 * so the generated label was being produced correctly and then clipped to the
+	 * 50px square -- a grey stub with no text, which is what the first attempt shipped.
+	 *
+	 * `position: absolute; top: 50%; transform: translateY(-50%)`: the immediate
+	 * parent, `#unified-search.header-menu`, is core's plain `display: block` (not
+	 * flex), so shrinking the button to 34px in normal flow just left it sitting at
+	 * the parent's top edge with all 16px of slack pushed below it, not split evenly
+	 * -- height alone does not centre a block child. That parent already carries
+	 * `position: relative` from core, so it is a ready-made containing block; no
+	 * All four need !important too -- NcButton's scoped rule sets its own
+	 * `position: relative` and wins the same way it won width/height, so the
+	 * unqualified versions of these silently no-op just like the first attempt at
+	 * height did.
+	 */
+	width: 150px !important;
+	min-width: 150px !important;
+	height: 34px !important;
+	min-height: 34px !important;
+	position: absolute !important;
+	top: 50% !important;
+	left: 0 !important;
+	transform: translateY(-50%) !important;
+	overflow: visible;
+	box-sizing: border-box;
+	padding: 0 12px;
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 8px;
+	background-color: var(--bs-paper-strong);
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-element);
+	color: var(--color-text-maxcontrast);
+}
+
+/* The icon sits in a wrapper that is width:100% and centres it, which would push the
+   label out of the box. */
+#header #unified-search .header-menu__trigger .button-vue__wrapper {
+	width: auto;
+	flex: none;
+}
+
+#header #unified-search .header-menu__trigger::after {
+	content: attr(aria-label);
+	font-size: 13px;
+	font-weight: 400;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/**
+ * The icon is sized for a 50px button and the screens use 14px. Core sets the size
+ * through an inline `--<hash>: 20px` custom property on the .icon-vue span, where the
+ * hash is generated per build, so it cannot be named -- the size has to be pinned on
+ * the elements instead.
+ *
+ * BOTH the svg and its wrapper span. Sizing only the svg left the span at 20px, and
+ * the 6px it kept was enough to push "Unified search" past the space left in a 150px
+ * box, so the label ellipsised to "Unified s...".
+ */
+#header #unified-search .header-menu__trigger svg,
+#header #unified-search .header-menu__trigger .button-vue__icon,
+#header #unified-search .header-menu__trigger .icon-vue {
+	width: 14px;
+	height: 14px;
+	min-width: 14px;
+	min-height: 14px;
+	flex: none;
+}
+
+/* Below the breakpoint where the badge goes, the bar is tight enough that the box
+   should collapse back to the icon core ships. */
+@media (max-width: 1024px) {
+	#header #unified-search .header-menu__trigger {
+		width: 44px;
+		justify-content: center;
+		background: none;
+		border: 0;
+	}
+
+	#header #unified-search .header-menu__trigger::after {
+		content: none;
+	}
+}
+
+/**
+ * The residency badge: the green "IN · Mumbai" block the screens carry in the bar on
+ * every frame, next to the account menu. Its inline style is
+ * `background:var(--color-accent-2-600);color:#fff;border-radius:8px;
+ *  padding:7px 14px;font:600 11.5px` with a 7px white dot at gap 7px.
+ *
+ * A ::before on .header-end rather than injected markup. The badge is decoration
+ * with no behaviour, .header-end is already a flex row, and a pseudo-element cannot
+ * be reshuffled by a Nextcloud release the way an injected node's neighbours can.
+ *
+ * The label is emitted by BrandingAssetsListener from BRANDING_RESIDENCY_LABEL. It
+ * is deliberately NOT derived from the S3 endpoint: a Ceph zone name says where the
+ * bucket is, not which jurisdiction the operator is claiming, and this badge is a
+ * claim. Unset, `content` resolves to `none` and nothing renders at all, which is
+ * the right default for an operator who has not made the claim.
+ */
+.header-end::before {
+	/**
+	 * Set by js/residency-badge.js, not by the server-side <style> the rest of this
+	 * theme's dynamic values go through. Util::addHeader escapes its text, so a CSS
+	 * string literal emitted that way arrives as `&quot;IN · Mumbai&quot;` and the
+	 * semicolon inside the entity terminates the declaration early -- the variable
+	 * resolved to the token `&quot` and `content` fell back to `none`. Setting the
+	 * property from JS through CSSStyleDeclaration.setProperty never passes through
+	 * HTML escaping at all.
+	 */
+	content: var(--bs-residency-label, none);
+	align-self: center;
+	flex: none;
+	margin-inline-end: var(--default-grid-baseline, 4px);
+	/* 7px 14px, plus room for the dot: 14 + 7 (dot) + 7 (gap) = 28px leading. */
+	padding: 7px 14px 7px 28px;
+	border-radius: var(--border-radius-element);
+	background-color: var(--bs-green-600);
+	/**
+	 * The 7px white dot. In the mockup it is a child <span>, which a pseudo-element
+	 * cannot have, so it is drawn as a background instead -- a hard-stopped
+	 * radial-gradient is a circle with no antialiasing surprises at this size. Centred
+	 * at 17.5px, which is the padding (14) plus half the dot (3.5).
+	 */
+	background-image: radial-gradient(circle at 17.5px 50%,
+		#ffffff 0 3.5px, transparent 3.5px);
+	background-repeat: no-repeat;
+	color: #ffffff;
+	font-size: 11.5px;
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	white-space: nowrap;
+}
+
+/* Narrow viewports: the bar runs out of room long before the badge is the problem,
+   but it is the least load-bearing thing in it, so it goes first. */
+@media (max-width: 1024px) {
+	.header-end::before {
+		content: none;
+	}
+}
+
+/* -- Buttons, global ------------------------------------------------------- */
+
+/**
+ * EVERY button in the pack is set in the mono face. bharatsuite-notifiled.css:
+ *
+ *   .btn { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600;
+ *          min-height: 34px; padding: 0 16px; gap: 10px;
+ *          border: 1px solid #16202b57; border-radius: 8px }
+ *   .btn-primary { background: var(--color-accent); color: #fff9f2 }
+ *
+ * "Import from CSV", "Share group", "Message", "Call", "Upload", "New document",
+ * "Sign in", "Open activity log", "+ New" -- all of them. Nextcloud's NcButton is
+ * 15px bold in the body face, and that difference is a large part of why the live
+ * interface still read as Nextcloud-with-new-colours next to the screens.
+ *
+ * Both the button and .button-vue__text: the wrapper span re-declares the size, so
+ * setting only the button left the label at 15px.
+ */
+.button-vue.button-vue.button-vue,
+.button-vue.button-vue .button-vue__text,
+input[type='submit'],
+input[type='button'],
+button.primary,
+.settings-section button {
+	/**
+	 * TRIPLED, and it does not work otherwise. NcButton's own size and weight come
+	 * from `.button-vue[data-v-HASH]` -- Vue scoped CSS at (0,2,0) -- in a <style>
+	 * block injected at runtime, so it beats a bare `.button-vue` on specificity AND
+	 * on document order. Naming the hash is not an option: it changes on every
+	 * Nextcloud build. Repeating the class is the ancestor-independent way past it,
+	 * the same device used on .assistant-modal and .setup--themed below.
+	 *
+	 * font-family alone was landing before this, which is how the half-fixed state
+	 * looked: mono letterforms still at Nextcloud's 15px/700 instead of 12.5px/600.
+	 */
+	font-family: var(--bs-mono);
+	font-size: 12.5px;
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+/**
+ * The header search box is the one exception, and it is explicit in the mockup:
+ * `font:400 13px var(--font-body)`. It is a placeholder, not an action, so it stays
+ * in the text face -- and it is an NcButton, so the rule above would otherwise catch
+ * it.
+ */
+#header #unified-search .header-menu__trigger::after {
+	font-family: var(--font-face);
+}
+
+/**
+ * The Assistant page's task-type row (screen 2h) -- "Chat with AI", "Work with
+ * text", "Context Chat", "Translate", etc. -- is a second exception. Nextcloud's
+ * own task-type picker, so the global button rule above caught it same as every
+ * other NcButton, but set in the mono face these read as controls rather than the
+ * plain-prose labels they are, and sat oddly next to the conversation list in the
+ * pane beside them, which core renders in the body face. Matching that -- not the
+ * bold/mono treatment every other button in the pack gets -- reads as one list of
+ * words in two panes rather than a button bar bolted onto a sidebar.
+ */
+.assistant-form .task-type-select .button-vue.button-vue.button-vue,
+.assistant-form .task-type-select .button-vue.button-vue .button-vue__text {
+	font-family: var(--font-face);
+}
+
+
+/* -- Selection, global ----------------------------------------------------- */
+
+/**
+ * THE SELECTED ROW, and this is the component that matters most outside the header.
+ *
+ * NcListItem is what Contacts, Mail, Talk, Notes, Deck and Calendar all build their
+ * content lists from, and Nextcloud fills the selected one with solid
+ * --color-primary-element and white text. At Nextcloud's blue that is unremarkable;
+ * at saffron it is a fluorescent orange slab, which is exactly what the Contacts
+ * screenshot showed against a mockup whose selected row is a pale tint.
+ *
+ * Screen 2c's selected row, verbatim:
+ *
+ *   padding: var(--space-3); border-radius: 8px;
+ *   background: var(--color-accent-100);        <- #fbf1e6, the 100 step
+ *   ...name at font:600 13.5px, ink; role at font:400 12px, --color-neutral-700
+ *
+ * So: tint, and the text stays INK rather than inverting. Same correction as the two
+ * navigations further down, one component along -- and the reason it was missed is
+ * that fixing the navigations does nothing for this one, they share no selector.
+ *
+ * The wrapper carries the active class and the child paints, so both are named.
+ */
+.list-item__wrapper--active .list-item.list-item.list-item,
+.list-item__wrapper--active .list-item.list-item.list-item:hover,
+.list-item__wrapper.active .list-item.list-item.list-item {
+	/**
+	 * NEXTCLOUD REMAPS THE TOKENS INSIDE A SELECTED ROW, and that is the whole reason
+	 * this component fought back so hard. NcListItem's rule is roughly
+	 *
+	 *   .list-item__wrapper--active .list-item[data-v-HASH] {
+	 *       --color-main-text: var(--color-primary-element-text);
+	 *       --color-primary-element-light: var(--color-primary-element);
+	 *       background-color: var(--color-primary-element-light);
+	 *       color: var(--color-main-text);
+	 *   }
+	 *
+	 * so it redefines the variables ON the row and then paints from them. The effect is
+	 * that a rule of ours reading --color-primary-element-light inside this subtree
+	 * resolves to full saffron, and one reading --color-main-text resolves to the
+	 * near-white #fff9f2 -- our declarations were applying correctly the whole time and
+	 * still produced Nextcloud's colours. It looks exactly like a specificity loss and
+	 * is not one, which is why raising specificity, and then adding !important, each
+	 * fixed only the half that did not depend on a remapped variable: the background
+	 * went tinted while every label stayed white.
+	 *
+	 * Two things fix it together. The custom properties are re-declared here, which
+	 * wins at (0,4,0) against their (0,3,0) and so repairs every descendant that reads
+	 * them -- no per-descendant colour rules needed. And the paint reads --bs-* tokens,
+	 * which are ours: Nextcloud has no reason to remap a name it does not know.
+	 */
+	--color-main-text: var(--bs-sel-text);
+	--color-primary-element-light: var(--bs-sel-bg);
+	--color-primary-element-text: var(--bs-sel-text);
+	--color-text-maxcontrast: var(--bs-sel-subtext);
+
+	background-color: var(--bs-sel-bg) !important;
+	color: var(--bs-sel-text) !important;
+}
+
+/* The subtitle keeps the muted step, per 2c's `color:var(--color-neutral-700)` on the
+   role line under each name. The name inherits --bs-sel-text from the row. */
+.list-item__wrapper--active .list-item .list-item-content__subname,
+.list-item__wrapper--active .list-item .list-item-content__details,
+.list-item__wrapper.active .list-item .list-item-content__subname {
+	color: var(--bs-sel-subtext);
+}
+
 
 /* -- Type and focus, global ------------------------------------------------ */
 
 /**
- * The Notifiled display setting is tight: -0.05em. At Nextcloud's heading sizes
- * that is the single change that most makes the interface read as BharatSuite
- * rather than as a recoloured Nextcloud.
+ * The display setting is tight. bharatsuite-notifiled.css opens its component layer
+ * with, and this is the whole rule:
+ *
+ *   h1, h2, h3 { letter-spacing: -.05em; text-wrap: pretty; }
+ *
+ * At Nextcloud's heading sizes it is the single change that most makes the interface
+ * read as BharatSuite rather than as a recoloured Nextcloud.
+ *
+ * Safe as a bare selector, unlike a font-family declaration: core/css/guest.css
+ * ships a reset for `h1,h2,...` but it only sets `font-family:inherit` and `outline`,
+ * so there is nothing here for it to tie with. The heading face needs no rule at all
+ * now that there is one text face -- the reset's `inherit` lands on Geist by itself.
  */
 h1, h2, h3,
 .app-navigation-caption__name {
-	letter-spacing: -0.03em;
+	letter-spacing: -0.05em;
+	text-wrap: pretty;
 }
 
 /**
- * Saffron focus ring, straight from the mockup's .btn:focus-visible. Nextcloud's
- * own focus styling is a primary-coloured inset box-shadow, which the token layer
- * already turns saffron; this adds the outer ring the mockups use and keeps it
- * visible against both grounds.
+ * Saffron focus ring, from the mockup's `.btn:focus-visible` --
+ * `outline:3px solid #cf6d1447; outline-offset:2px`. Nextcloud's own focus styling
+ * is a primary-coloured inset box-shadow, which the token layer already turns
+ * saffron; this adds the outer ring and keeps it visible against both grounds.
  */
 :focus-visible {
-	outline: 2px solid var(--color-primary-element);
+	outline: 3px solid #cf6d1447;
 	outline-offset: 2px;
+}
+
+
+/* -- The micro-label ------------------------------------------------------- */
+
+/**
+ * The single most characteristic component in the screens, and the one thing that
+ * is pure Notifiled with no Nextcloud equivalent. Its class is .mlab:
+ *
+ *   font: 600 10px var(--font-mono);
+ *   letter-spacing: .13em;
+ *   text-transform: uppercase;
+ *   color: var(--color-neutral-600);
+ *
+ * It labels every card in the dashboard ("NEEDS YOU TODAY", "STORAGE", "MAIL"),
+ * every field on the sign-in screen ("WORK EMAIL", "PASSWORD"), the date eyebrow
+ * above the greeting, and every column header in Files. Applied here to the
+ * Nextcloud elements that play those roles.
+ *
+ * 10px is small enough that it only works in a mono face at 600 with the tracking
+ * opened up; at Nextcloud's default 11px sans it just looks like shrunken body text,
+ * which is what the previous revision's approximation of this did.
+ */
+#app-dashboard .panel--header h2,
+.bs-dash-mlab,
+.files-list__column,
+.files-list__row-head .files-list__column button,
+.settings-section__name,
+.app-settings-section__name {
+	font-family: var(--bs-mono);
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.4;
+	letter-spacing: 0.13em;
+	text-transform: uppercase;
+	color: var(--color-text-maxcontrast);
 }
 
 
 /* -- Dashboard ------------------------------------------------------------- */
 
 /**
- * Mockup cards are hairline-bordered surfaces on the paper ground. Nextcloud
- * draws borderless translucent panels that rely on a photographic background for
- * separation -- with a flat colour behind them they read as floating blocks.
+ * Cards are hairline-bordered surfaces on the paper ground:
+ * `background:var(--color-surface);border:1px solid var(--color-divider);
+ *  border-radius:var(--radius-md);padding:var(--space-4);box-shadow:var(--shadow-sm)`.
+ *
+ * Nextcloud draws borderless translucent panels that rely on a photographic
+ * background for separation -- with a flat colour behind them they read as floating
+ * blocks. --shadow-sm is `0 1px 2px #16202b14`, which is a seam rather than a lift.
  */
 #app-dashboard .panel {
 	background-color: var(--bs-card);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-container);
-	box-shadow: none;
-}
-
-/**
- * Panel titles become the mockup's micro-label: uppercase, tracked, muted, with
- * the icon dropped to match. Set on the h2 rather than the header so the panel's
- * own action buttons keep their normal sizing.
- */
-#app-dashboard .panel--header h2 {
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.09em;
-	text-transform: uppercase;
-	color: var(--color-text-maxcontrast);
+	box-shadow: 0 1px 2px #16202b14;
 }
 
 #app-dashboard .panel--header h2 img,
@@ -438,17 +1120,25 @@ h1, h2, h3,
 }
 
 /**
- * The greeting is the page's display type in the mockups: left-aligned against
- * the first card, not centred over the grid.
+ * The greeting is the page's display type: `font:600 34px/1.1 var(--font-heading)`,
+ * left-aligned against the first card rather than centred over the grid.
  *
  * Core's own rule is `#app-dashboard > h2[data-v-HASH]`, so an id and a class-level
- * selector tie with it and lose on source order. `:not([hidden])` adds the one
- * point of specificity that settles it, and unlike the [data-v-*] hash it does not
- * change when Nextcloud rebuilds.
+ * selector tie with it and lose on source order. `:not([hidden])` adds the one point
+ * of specificity that settles it, and unlike the [data-v-*] hash it does not change
+ * when Nextcloud rebuilds.
+ *
+ * Two selectors, not one: dashboard-panels.js re-parents this same h2 into
+ * .bs-dash-titles so it can sit in a flex row next to the Upload/New document
+ * buttons (screen 1b), which makes it a grandchild of #app-dashboard rather than a
+ * direct child. The first selector still has to cover the instant before that script
+ * runs (and the case where it fails to load at all).
  */
-#app-dashboard > h2:first-of-type:not([hidden]) {
+#app-dashboard > h2:first-of-type:not([hidden]),
+#app-dashboard .bs-dash-titles > h2 {
 	font-size: 34px;
 	font-weight: 600;
+	line-height: 1.1;
 	letter-spacing: -0.05em;
 	text-align: start;
 }
@@ -457,66 +1147,465 @@ h1, h2, h3,
  * ...and the grid moves with it. Nextcloud centres the widget row, which leaves the
  * heading orphaned at the page edge while the first card floats 100px in -- and the
  * offset is not a constant, it falls out of how many widgets are enabled. The
- * mockups lay the cards out from the left, so aligning the row to the same origin
- * as the heading is both the closer match and the only stable one.
+ * screens lay the cards out from the left, so aligning the row to the same origin as
+ * the heading is both the closer match and the only stable one.
  */
 #app-dashboard .panels {
 	justify-content: flex-start;
+}
+
+/**
+ * The custom panel grid, replacing Nextcloud's stock widgets outright.
+ *
+ * Screen 1b's dashboard has no Nextcloud equivalent: "Needs you today" (a
+ * signature/review/share queue), "Sovereignty status" (data residency) and the
+ * storage split are BharatSuite concepts with no backing data source yet.
+ * dashboard-panels.js builds this grid as static markup matching the mockup's
+ * copy and layout exactly; wiring individual cards to live data (Mail, Calendar,
+ * Activity) is its own follow-up, tracked separately from this visual pass.
+ *
+ * UNCONDITIONAL, not gated on a class the script adds once it sees the grid.
+ * That was the first cut, and it flashed: the widgets are rendered by Vue,
+ * async, well after this stylesheet has already been parsed and applied, so a
+ * script-added class always loses the race and lands one frame after the
+ * stock panels have already painted. This stylesheet blocks rendering before
+ * Vue's bundle even runs, so hiding unconditionally here means the widgets are
+ * never visible to begin with -- there is no frame for them to paint into.
+ *
+ * The rules above this point (.panel, .panel--header, the h2 sizing) are left
+ * in place regardless: dashboard-panels.js re-parents that same h2, and if the
+ * script fails to load, this rule still hides the stock grid, so those rules
+ * no longer have anything to fall back onto -- they are dead weight now, kept
+ * only because deleting working CSS outside this task's scope isn't worth the
+ * risk of a rebase conflict with whatever else is mid-flight on this branch.
+ */
+#app-dashboard .panels,
+#app-dashboard > .footer {
+	display: none;
+}
+
+.bs-dash-header {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 18px;
+	/* The eyebrow above the greeting is the first thing in #app-dashboard's own
+	   content box; the box gives the h2 that used to sit there enough clearance
+	   for ITS cap-height, but not quite enough for the eyebrow's -- a shorter
+	   line sitting flush at the very top has its own ascenders shaved by the
+	   header bar above. A few px of breathing room fixes it without touching
+	   Nextcloud's own padding. */
+	margin-top: 4px;
+	margin-bottom: 26px;
+}
+
+.bs-dash-eyebrow {
+	margin-bottom: 6px;
+	color: var(--color-info);
+}
+
+.bs-dash-actions {
+	display: flex;
+	gap: 8px;
+	flex: none;
+}
+
+.bs-dash-grid {
+	display: grid;
+	grid-template-columns: 1.35fr 1fr 1fr;
+	gap: 18px;
+}
+
+.bs-dash-card {
+	background: var(--bs-card);
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-container);
+	padding: 18px;
+	box-shadow: 0 1px 2px #16202b14;
+	box-sizing: border-box;
+}
+
+/* The Sovereignty status card: a fixed dark-green fill in both themes, see the
+   --bs-green-700 / --bs-green-pale comment in the token block. */
+.bs-dash-card--sovereignty {
+	background: var(--bs-green-700);
+	border-radius: var(--border-radius-container);
+	padding: 18px;
+	box-sizing: border-box;
+	color: #fff;
+}
+
+/* Recent activity: the one card whose fill DOES invert per theme, via
+   --bs-green-light-bg / --bs-green-light-text. */
+.bs-dash-card--mint {
+	background: var(--bs-green-light-bg);
+	border-radius: var(--border-radius-container);
+	padding: 18px;
+	box-sizing: border-box;
+}
+
+.bs-dash-card__head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 13px;
+}
+
+.bs-dash-mlab--on-dark {
+	color: var(--bs-green-pale);
+}
+
+.bs-dash-mlab--on-mint {
+	color: var(--bs-green-light-text);
+}
+
+/* The "4" badge on Needs you today: same shape as .bs-dash-tag below, but always
+   saffron -- it is a count, not a status. */
+.bs-dash-count {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 8px;
+	border-radius: var(--border-radius-small);
+	font-family: var(--bs-mono);
+	font-size: 9.5px;
+	font-weight: 650;
+	letter-spacing: 0.08em;
+	background: var(--color-primary-element-light);
+	color: var(--color-primary-element-light-text);
+}
+
+.bs-dash-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.bs-dash-task {
+	display: flex;
+	gap: 13px;
+	align-items: center;
+	border-radius: var(--border-radius-container);
+	padding: 13px;
+	box-sizing: border-box;
+}
+
+/* The one row due today: the same tinted-fill treatment as a selected list item
+   elsewhere in the theme, so it reads as "needs you" rather than merely listed. */
+.bs-dash-task--due {
+	background: var(--color-primary-element-light);
+}
+
+.bs-dash-task--muted {
+	background: var(--color-background-hover);
+}
+
+.bs-dash-avatar {
+	width: 30px;
+	height: 30px;
+	border-radius: var(--border-radius-pill);
+	flex: none;
+}
+
+.bs-dash-avatar--sm {
+	width: 26px;
+	height: 26px;
+}
+
+.bs-dash-task__body {
+	flex: 1;
+	min-width: 0;
+}
+
+.bs-dash-task__title {
+	font-size: 13.5px;
+	font-weight: 600;
+}
+
+.bs-dash-task__meta {
+	font-size: 12px;
+	color: var(--color-text-light);
+	margin-top: 2px;
+}
+
+.bs-dash-tag {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 8px;
+	border-radius: var(--border-radius-small);
+	font-family: var(--bs-mono);
+	font-size: 9.5px;
+	font-weight: 650;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	border: 1px solid var(--color-border);
+	color: var(--color-text-light);
+	white-space: nowrap;
+	flex: none;
+}
+
+.bs-dash-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 34px;
+	padding: 0 16px;
+	box-sizing: border-box;
+	font-family: var(--bs-mono);
+	font-size: 12.5px;
+	font-weight: 600;
+	border-radius: var(--border-radius-element);
+	border: 1px solid var(--color-border-dark);
+	background: transparent;
+	color: var(--color-main-text);
+	cursor: pointer;
+	text-decoration: none;
+}
+
+.bs-dash-btn--primary {
+	background: var(--color-primary-element);
+	border-color: var(--color-primary-element);
+	color: var(--color-primary-element-text);
+}
+
+.bs-dash-btn--primary:hover {
+	background: var(--color-primary-element-hover);
+	border-color: var(--color-primary-element-hover);
+}
+
+.bs-dash-btn--secondary {
+	background: var(--bs-paper);
+}
+
+.bs-dash-btn--secondary:hover {
+	border-color: var(--color-primary-element);
+	color: var(--color-primary-element-light-text);
+}
+
+.bs-dash-mail-row {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+}
+
+.bs-dash-mail-row__name {
+	font-size: 13px;
+	font-weight: 600;
+}
+
+.bs-dash-mail-row__subject {
+	font-size: 12.5px;
+	line-height: 1.4;
+	color: var(--color-text-light);
+	margin-top: 2px;
+}
+
+.bs-dash-mail-summary {
+	margin-top: 18px;
+	font-size: 12.5px;
+	font-weight: 500;
+	color: var(--color-primary-element-light-text);
+}
+
+.bs-dash-figure {
+	font-family: var(--font-face);
+	font-weight: 600;
+	font-size: 30px;
+	line-height: 1.1;
+	margin-bottom: 6px;
+}
+
+.bs-dash-sub {
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--bs-green-pale);
+	margin-bottom: 18px;
+}
+
+.bs-dash-stat-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.bs-dash-stat {
+	display: flex;
+	justify-content: space-between;
+	font-size: 12.5px;
+	font-weight: 500;
+}
+
+.bs-dash-stat__label {
+	color: var(--bs-green-pale);
+}
+
+.bs-dash-stat__value--strong {
+	color: var(--bs-green-pale);
+	font-weight: 700;
+}
+
+.bs-dash-storage-figure {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	margin-bottom: 13px;
+}
+
+.bs-dash-storage-figure__value {
+	font-family: var(--font-face);
+	font-weight: 600;
+	font-size: 28px;
+}
+
+.bs-dash-storage-figure__of {
+	font-size: 13px;
+	color: var(--color-text-light);
+}
+
+.bs-dash-storage-bar {
+	height: 12px;
+	border-radius: var(--border-radius-pill);
+	background: var(--color-background-hover);
+	overflow: hidden;
+	display: flex;
+}
+
+.bs-dash-storage-legend {
+	display: flex;
+	gap: 13px;
+	margin-top: 13px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--color-text-light);
+}
+
+.bs-dash-agenda {
+	display: flex;
+	flex-direction: column;
+	gap: 13px;
+}
+
+.bs-dash-agenda-row {
+	display: flex;
+	gap: 13px;
+}
+
+.bs-dash-agenda-row__time {
+	font-size: 12.5px;
+	font-weight: 600;
+	color: var(--color-info);
+	width: 52px;
+	flex: none;
+}
+
+.bs-dash-agenda-row__title {
+	font-size: 13px;
+	font-weight: 500;
+}
+
+.bs-dash-activity {
+	display: flex;
+	flex-direction: column;
+	gap: 13px;
+	font-size: 13px;
+	line-height: 1.45;
+	color: var(--color-main-text);
 }
 
 
 /* -- Files ----------------------------------------------------------------- */
 
 /**
- * Nextcloud fills the selected navigation entry with solid primary. At saffron
- * that is a heavy bar down the sidebar; the mockups use a soft tint with ink
- * text and a saffron rule at the leading edge, so the accent marks the row
- * without becoming the loudest thing on the screen.
+ * Nextcloud fills the selected navigation entry with solid primary. At saffron that
+ * is a heavy bar down the sidebar; screen 1c marks it with a soft tinted block, ink
+ * text and a coloured icon, so the accent says "this one" without becoming the
+ * loudest thing on the page.
+ */
+/**
+ * TWO navigation components, not one, and they need the same treatment.
  *
- * The rule is an inset shadow rather than a border so it does not shift the row.
+ *   #app-navigation-vue .app-navigation-entry.active   Files and the other apps.
+ *   #app-navigation li.active                          Settings, which is an older
+ *                                                      component with a plain <li>.
+ *
+ * Styling only the first left the Settings sidebar filling its current entry with
+ * solid saffron while Files used the tint -- the same state drawn two different ways,
+ * three clicks apart.
+ *
+ * They also differ in WHICH element carries the fill, and getting that wrong is
+ * invisible in the computed style of the one you happen to measure. Files paints the
+ * <li>; Settings paints the <a> inside it, at `background:var(--color-primary-element)`
+ * with its own 8px radius. Tinting the Settings <li> therefore changed a colour that
+ * was completely hidden behind the saffron <a> on top of it -- the probe reported the
+ * tint applied while the screenshot still showed solid saffron. The pixels were right
+ * and the computed style was answering a different question.
  */
 #app-navigation-vue .app-navigation-entry.active,
-#app-navigation-vue .app-navigation-entry.active:hover {
+#app-navigation-vue .app-navigation-entry.active:hover,
+#app-navigation li.active > a,
+#app-navigation li.active:hover > a {
 	/**
-	 * !important is load-bearing here and cannot be avoided: the rule this
-	 * replaces is Vue scoped CSS that already carries !important. Matching it
-	 * needs both the flag and more specificity, which the id ancestor supplies --
-	 * deliberately, rather than by copying the [data-v-*] hash, which changes on
-	 * every Nextcloud build.
+	 * !important is load-bearing here and cannot be avoided: the rule this replaces
+	 * is Vue scoped CSS that already carries !important. Matching it needs both the
+	 * flag and more specificity, which the id ancestor supplies -- deliberately,
+	 * rather than by copying the [data-v-*] hash, which changes on every build.
 	 */
 	background-color: var(--color-primary-element-light) !important;
+
+	/**
+	 * The leading saffron rule, back. It was dropped in the previous revision for a
+	 * good reason that no longer holds: at --border-radius-element 999px the entry
+	 * was a pill, and a 3px inset edge on a pill renders as a crescent hooking
+	 * around the left cap. At 8px it is a straight rule again, which is what the
+	 * Files sidebar in 1c shows.
+	 */
 	box-shadow: inset 3px 0 0 var(--color-primary-element);
 }
 
+/**
+ * The label, and this one is a legibility bug rather than a nicety. Core pairs its
+ * solid-primary fill with --color-primary-element-text, which this theme sets to the
+ * on-saffron #fff9f2. Once the fill became a pale tint that left near-white text on
+ * near-white, measured at rgb(255,249,242) on rgb(251,241,230).
+ *
+ * The bare `a` is included alongside the class because the two components disagree:
+ * Files wraps the label in .app-navigation-entry-link, Settings puts it straight in an
+ * <a>. `* ` catches the counters and labels nested inside either.
+ */
+#app-navigation-vue .app-navigation-entry.active > a,
 #app-navigation-vue .app-navigation-entry.active .app-navigation-entry-link,
-#app-navigation-vue .app-navigation-entry.active .app-navigation-entry-link * {
-	color: var(--color-main-text);
+#app-navigation-vue .app-navigation-entry.active .app-navigation-entry-link *,
+#app-navigation li.active > a,
+#app-navigation li.active > a * {
+	/**
+	 * --color-accent-700, not ink. The sidebar entry in 2c is
+	 * `background:var(--color-accent-100); color:var(--color-accent-700)` -- the label
+	 * takes the dark end of the saffron ramp, which is what makes the tinted entry
+	 * read as selected rather than merely shaded. This was ink until the Contacts
+	 * screen was compared side by side with the mockup.
+	 *
+	 * Through the token, not the literal: --bs-saffron-700 is a light-ramp value and
+	 * would be a near-black on the dark theme's #3f2008 tint. The token is already
+	 * lifted to #dc9a53 in the dark blocks.
+	 */
+	color: var(--color-primary-element-light-text);
 }
 
-/* The icon is what carries the accent once the fill is gone. */
+/* The icon carries the accent alongside the rule. */
 #app-navigation-vue .app-navigation-entry.active .app-navigation-entry-icon,
-#app-navigation-vue .app-navigation-entry.active svg {
+#app-navigation-vue .app-navigation-entry.active svg,
+#app-navigation li.active > a svg {
 	color: var(--color-primary-element);
 }
 
-/* Column headers get the same micro-label treatment as the dashboard panels. */
-.files-list__column,
-.files-list__row-head .files-list__column button {
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	color: var(--color-text-maxcontrast);
-}
-
-/* The header row is a hairline, matching the mockup's table rule. */
+/* The header row is a hairline, matching the table rule in 1c. */
 .files-list__row-head {
 	border-bottom: 1px solid var(--color-border);
 }
 
 /**
- * Selected rows use the same saffron tint as the active navigation entry, so
- * "this one" means one colour everywhere in the app.
+ * Selected rows use the same saffron tint as the active navigation entry, so "this
+ * one" means one colour everywhere in the app.
  */
 .files-list__row--active,
 .files-list__row.files-list__row--active,
@@ -524,15 +1613,306 @@ tr.files-list__row[data-cy-files-list-row][aria-selected='true'] {
 	background-color: var(--color-primary-element-light);
 }
 
+/**
+ * Files list container styling - the main table area sits on a card surface
+ * with hairline borders matching the mockup's treatment.
+ */
+#app-content-vue.app-files .files-list {
+	background-color: var(--bs-card);
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-container);
+	box-shadow: 0 1px 2px #16202b14;
+}
+
+/**
+ * Files table rows - ensure proper spacing and borders between items.
+ * Each row has a subtle bottom border creating visual separation.
+ */
+.files-list__row {
+	border-bottom: 1px solid var(--color-border);
+}
+
+.files-list__row:last-child {
+	border-bottom: none;
+}
+
+/**
+ * File name and details styling - tighten up typography to match mockup.
+ */
+.files-list__row-name {
+	font-size: 13.5px;
+	font-weight: 500;
+	color: var(--color-main-text);
+}
+
+/**
+ * File metadata (size, modified date) - using the muted text color.
+ */
+.files-list__row-size,
+.files-list__row-mtime {
+	font-size: 12.5px;
+	color: var(--color-text-light);
+}
+
+/**
+ * Hover state for files list rows - subtle background change on hover
+ */
+.files-list__row:hover:not(.files-list__row--active) {
+	background-color: var(--color-background-hover);
+}
+
+/**
+ * Action buttons and icons in the files list - ensure proper sizing and colors
+ */
+.files-list__row-actions button,
+.files-list__row-actions .action-item {
+	color: var(--color-text-maxcontrast);
+}
+
+.files-list__row-actions button:hover,
+.files-list__row-actions .action-item:hover {
+	color: var(--color-primary-element);
+	background-color: var(--color-background-hover);
+}
+
+/**
+ * Files breadcrumb navigation styling
+ */
+.files-list__header-share-button,
+.breadcrumb {
+	font-size: 13px;
+}
+
+/**
+ * Empty content state styling - when folder is empty
+ */
+.empty-content {
+	color: var(--color-text-light);
+}
+
+.empty-content__title {
+	font-weight: 600;
+	font-size: 16px;
+	color: var(--color-main-text);
+}
+
+.empty-content__description {
+	font-size: 14px;
+	color: var(--color-text-light);
+}
+
+/**
+ * File preview thumbnails - ensure consistent sizing
+ */
+.files-list__row-icon {
+	flex-shrink: 0;
+}
+
+/**
+ * Files app header area - containing breadcrumbs and actions
+ */
+#app-content-vue.app-files .app-content-header {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--color-border);
+}
+
+/**
+ * Upload/New buttons in files - ensuring they follow button styling
+ */
+.app-content-header .button-vue,
+.files-list__header .button-vue {
+	font-family: var(--bs-mono);
+	font-size: 12.5px;
+	font-weight: 600;
+}
+
+/**
+ * Drag and drop overlay styling
+ */
+.files-list__drag-drop-notice {
+	background-color: var(--color-primary-element-light);
+	border: 2px dashed var(--color-primary-element);
+	border-radius: var(--border-radius-container);
+	color: var(--color-primary-element-light-text);
+}
+
+/**
+ * File selection checkbox styling
+ */
+.files-list__row-checkbox {
+	flex-shrink: 0;
+}
+
+/**
+ * Files navigation sidebar folder tree
+ */
+.app-navigation-entry__children .app-navigation-entry {
+	padding-left: 8px;
+}
+
+/**
+ * File details sidebar styling (when a file is selected)
+ */
+#app-sidebar-vue.app-sidebar {
+	border-left: 1px solid var(--color-border);
+	background-color: var(--bs-card);
+}
+
+#app-sidebar-vue .app-sidebar-header {
+	border-bottom: 1px solid var(--color-border);
+}
+
+/**
+ * Sharing dialog and file sharing UI elements
+ */
+.sharing-entry,
+.sharing-link-list {
+	border-top: 1px solid var(--color-border);
+}
+
+.sharing-entry__desc {
+	font-size: 12.5px;
+	color: var(--color-text-light);
+}
+
+/**
+ * Search results in files
+ */
+.files-list__row[data-cy-files-list-row-name*="search"] {
+	background-color: var(--bs-surface);
+}
+
+/**
+ * Context menu styling for files
+ */
+.v-popper__popper.action-item__popper {
+	background-color: var(--bs-card);
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-container);
+	box-shadow: 0 4px 12px rgba(22, 32, 43, 0.15);
+}
+
+/**
+ * Column sorting indicators
+ */
+.files-list__column button[aria-sort] {
+	color: var(--color-text-maxcontrast);
+}
+
+.files-list__column button[aria-sort]:hover {
+	color: var(--color-primary-element);
+}
+
+
+/**
+ * Workspaces, in the Files nav sidebar. Built by files-workspaces.js as a static
+ * block (Finance / Compliance / Admissions) between the nav list and the quota /
+ * settings footer -- see that script's header comment for why there is no live
+ * workspace data behind it yet.
+ */
+.bs-workspaces {
+	padding: 12px 8px 4px;
+	margin-top: 4px;
+	border-top: 1px solid var(--color-border);
+}
+
+.bs-workspaces__label {
+	padding: 0 8px 8px;
+}
+
+.bs-workspaces__list {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.bs-workspaces__item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px;
+	border-radius: var(--border-radius-element);
+	font-size: 13.5px;
+	font-weight: 500;
+}
+
+.bs-workspaces__dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex: none;
+}
+
+/**
+ * The file sidebar's detail rail: Owner / Region / Encryption / External links,
+ * plus the "Open activity log" button. Built by files-detail-rail.js between the
+ * sidebar header and its tab bar -- see that script's header comment for which
+ * rows are real data (Owner) versus placeholder (everything else), and for why
+ * Classification and Residency are deliberately absent here as elsewhere in Files.
+ */
+.bs-detail-rail {
+	padding: 4px 18px 18px;
+	border-bottom: 1px solid var(--color-border);
+}
+
+.bs-detail-rail__list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 14px;
+}
+
+.bs-detail-rail__row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 12.5px;
+}
+
+.bs-detail-rail__label {
+	color: var(--color-text-light);
+}
+
+.bs-detail-rail__value {
+	font-weight: 500;
+	color: var(--color-main-text);
+	text-align: right;
+}
+
+.bs-detail-rail__activity-btn {
+	display: block;
+	width: 100%;
+	min-height: 34px;
+	padding: 0 16px;
+	box-sizing: border-box;
+	font-family: var(--bs-mono);
+	font-size: 12.5px;
+	font-weight: 600;
+	border-radius: var(--border-radius-element);
+	border: 1px solid var(--color-border-dark);
+	background: transparent;
+	color: var(--color-main-text);
+	cursor: pointer;
+}
+
+.bs-detail-rail__activity-btn:hover {
+	border-color: var(--color-primary-element);
+	color: var(--color-primary-element-light-text);
+}
+
 
 /* -- Login ----------------------------------------------------------------- */
 
 /**
- * The sign-in card is stock .guest-box: the page's own colour at 80% alpha, held
- * up by a drop shadow. That reads on Nextcloud's photographic login background,
- * but on a flat paper ground it is a shadow around nothing. The mockups use a
- * distinct surface with a hairline, so the card is given the same treatment as
- * the dashboard's, plus the Notifiled --shadow-sm.
+ * The sign-in card is stock .guest-box: the page's own colour at 80% alpha, held up
+ * by a drop shadow. That reads on Nextcloud's photographic login background, but on
+ * a flat paper ground it is a shadow around nothing. Screen 1a puts the form on a
+ * distinct surface with a hairline, so the card gets the same treatment as the
+ * dashboard's, plus --shadow-sm.
  */
 #body-login .guest-box.login-box {
 	background-color: var(--bs-card);
@@ -550,6 +1930,343 @@ tr.files-list__row[data-cy-files-list-row][aria-selected='true'] {
 	box-shadow: none;
 }
 
+/**
+ * Field labels on the sign-in form are static micro-labels in 1a -- "WORK EMAIL" and
+ * "PASSWORD" sitting above their inputs:
+ *
+ *   .field label { font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+ *                  letter-spacing: .09em; text-transform: uppercase;
+ *                  color: var(--color-neutral-700) }
+ *
+ * Nextcloud's NcTextField instead does a notched floating label: the <label> is
+ * `position:absolute; top:-9.75px; left:2px` with a background matching the page,
+ * painted over the input's own top border to cut a gap in it. Two things went wrong
+ * with that here. The notch background is --color-main-background, the paper ground,
+ * while the sign-in card is the lighter surface -- so the chip read as a paper-coloured
+ * tab stuck on the card. And the label only floats once the field is focused or
+ * filled, so on load the password label sat inside its input as a placeholder while
+ * the autofocused email label sat on the border: two fields, two different treatments.
+ *
+ * Fixed by lifting the label clear of the border rather than by restructuring the
+ * field. It stays `position:absolute` and the wrapper keeps its geometry, which is
+ * deliberate: the password field's reveal button is absolutely positioned against
+ * that same wrapper, so turning the wrapper into a column flex to reorder the label
+ * -- the DOM order is input first, label second -- would have dragged the reveal
+ * button out of the input with it. Moving one offset touches nothing else.
+ *
+ * `margin-top` on the field opens the room the label moves into, and the notch
+ * background goes away because there is no longer a border to cut.
+ */
+#body-login .input-field {
+	margin-top: 20px;
+}
+
+#body-login .input-field .input-field__label {
+	/* Both states, so the label does not animate between "inside" and "above". Core
+	   drives the float from :focus and :not(:placeholder-shown) on the input, all at
+	   lower specificity than this. */
+	top: -17px;
+	inset-inline-start: 0;
+	background: none;
+	padding: 0;
+	max-width: none;
+	font-family: var(--bs-mono);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.13em;
+	text-transform: uppercase;
+	color: var(--color-text-maxcontrast);
+}
+
+/**
+ * The two-panel marketing split, screen 1a.
+ *
+ * Nothing above this point moves anything -- every other rule in this file
+ * re-skins an element Nextcloud already renders, per Anirban's rule for this
+ * layer. This block is the one deliberate exception: the login screen's left
+ * panel does not exist anywhere in Nextcloud's guest template, so
+ * js/login-marketing.js builds it and flags `body.bs-login-split` once it
+ * has. Every selector below is scoped to that flag, so a page where the
+ * script did not run -- script blocked, a future core rewrite of the login
+ * template -- renders exactly as it did before this section existed: one
+ * centred column, full-width tricolour rule, footer intact.
+ *
+ * Held to a min-width media query for the same reason the flag exists. Two
+ * fixed 612px-wide panels do not fit a phone screen, and the mockup pack
+ * itself only draws this split at desktop widths -- there is no small-screen
+ * treatment to match. Below the breakpoint, .bs-login-split is inert.
+ */
+
+/**
+ * Hidden OUTSIDE the media query, on purpose: the panel is real markup the
+ * script inserts regardless of viewport width, and without this base rule it
+ * would render below the breakpoint too -- unstyled, ahead of the login
+ * card, with the fact list's <dt>/<dd> pairs running together on one line
+ * with no layout to separate them. The media query below only ever turns
+ * this back to `flex`; it never has to hide it.
+ */
+.bs-login-marketing {
+	display: none;
+}
+
+@media (min-width: 960px) {
+	/**
+	 * Panel width is one variable, shared by the panel itself, the space the
+	 * rest of the page reserves for it, and the tricolour rule -- see below.
+	 * Sampling the mockup at 2x puts the panel's right edge at x=1224 of a
+	 * 2640px frame, 46.4%; clamped so it neither crushes the form column on a
+	 * laptop nor grows past what the mockup itself draws on anything wider.
+	 */
+	body.bs-login-split {
+		--bs-login-split-width: clamp(420px, 46%, 612px);
+	}
+
+	/**
+	 * core/css/guest.css centres the whole page with `body{display:flex;
+	 * flex-direction:column;align-items:center;justify-content:center}`. The
+	 * panel is lifted out of that flow entirely (`position:fixed`, below) so
+	 * it always spans the full viewport height regardless of how tall the
+	 * centred column is; this padding just reserves the matching width on the
+	 * left so the still-centred `.wrapper` centres itself in the remaining
+	 * space rather than sliding underneath the fixed panel.
+	 */
+	body.bs-login-split {
+		padding-inline-start: var(--bs-login-split-width);
+		box-sizing: border-box;
+		/**
+		 * The form column sits one step brighter than the panel -- the
+		 * mockup's right half samples at #fdfcfa, closer to --bs-surface
+		 * than to the page's own --bs-paper. The panel still paints its own
+		 * --bs-paper-strong over this on top, being `position:fixed`, so
+		 * this only reaches the visible form column.
+		 */
+		background-color: var(--bs-surface);
+	}
+
+	/**
+	 * Screen 1a is the one screen where the tricolour rule does NOT span the
+	 * viewport: the mockup draws it only above the marketing panel, and
+	 * leaves the form column's top edge plain. Same selector as the shared
+	 * rule earlier in this file, so this wins at equal specificity -- but
+	 * needs the `#body-login` prefix, not just the class, to GET equal
+	 * specificity: that shared rule matches through an ID, and an ID
+	 * anywhere in a selector always outranks one with none, no matter how
+	 * many classes the challenger stacks on. `body.bs-login-split::before`
+	 * alone would lose to it regardless of source order.
+	 */
+	#body-login.bs-login-split::before {
+		width: var(--bs-login-split-width);
+	}
+
+	/**
+	 * The footer ("BharatSuite -- Loren Ipsum") has no place in the split
+	 * layout -- the panel already carries the brand mark and the claim it
+	 * would otherwise make in a caption -- and at the panel's full-height
+	 * fixed position it would sit stranded in the form column instead of
+	 * pinned to the viewport bottom.
+	 */
+	#body-login.bs-login-split footer.guest-box {
+		display: none;
+	}
+
+	/**
+	 * Screen 1a puts the sign-in fields directly on the form column's ground,
+	 * no card box around them -- unlike the single-column fallback above,
+	 * where the card exists specifically to stop a shadow from framing
+	 * nothing on an otherwise flat page. Here the split itself is that
+	 * framing, so the card chrome is removed rather than recoloured.
+	 *
+	 * Same ID-precedence issue as the rule above: this has to outrank
+	 * `#body-login .guest-box.login-box` earlier in this file, which also
+	 * carries the ID, so the class COUNT has to win the tie -- stacking
+	 * `.bs-login-split` alongside `.guest-box.login-box` gives this selector
+	 * one class more than that rule has.
+	 *
+	 * `text-align` and an explicit `width` fix the other stock-login habit
+	 * this screen drops: core/css/guest.css sets `body{text-align:center}`
+	 * and leaves `.guest-box` as `display:inline-block`, sized to its own
+	 * content, which is how the stock page ends up as a narrow, centred
+	 * card. `text-align` here governs the box's OWN contents, not its
+	 * position -- the box is still centred as a unit within `.wrapper` by
+	 * the inherited `text-align:center` on that ancestor, which is left
+	 * alone -- so heading, labels and links read left-aligned inside a
+	 * wider box without having to fight the centring that positions the box
+	 * itself. 420px comes from sampling the mockup's fields at 2x: they run
+	 * roughly 767 to 1192 of a 2640px frame, ~420px at 1x.
+	 */
+	#body-login.bs-login-split .guest-box.login-box {
+		background: none;
+		border: 0;
+		box-shadow: none;
+		padding: 0;
+		width: 420px;
+		text-align: start;
+	}
+
+	/**
+	 * The stock page's inputs are a fixed 266px -- core/css/guest.css's
+	 * `input[type=email],input[type=password],input[type=text]{width:266px}`,
+	 * a leftover from the pre-Vue login template. Screen 1a's fields run the
+	 * full width of the card, so this fills the 420px box above instead.
+	 * `box-sizing:border-box` keeps the field's own 2px border and 5px/10px
+	 * padding inside that 100%, rather than added on top of it.
+	 */
+	#body-login.bs-login-split input[type='text'],
+	#body-login.bs-login-split input[type='password'],
+	#body-login.bs-login-split input[type='email'] {
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	#body-login.bs-login-split .input-field,
+	#body-login.bs-login-split .input-field__main-wrapper {
+		width: 100%;
+	}
+
+	/**
+	 * "Use your organisation account.", inserted by js/login-marketing.js
+	 * right after the (renamed) "Sign in" headline.
+	 */
+	#body-login.bs-login-split .bs-login-subtitle {
+		margin: 0 0 28px;
+		font-size: 15px;
+		color: var(--color-text-light);
+	}
+
+	/**
+	 * The stock headline is a plain h2 -- core/css/guest.css's
+	 * `h2{font-size:20px;margin-bottom:12px;line-height:140%}`, sized for a
+	 * caption above a form rather than the page's one hero line. Screen 1a's
+	 * "Sign in" reads larger and sits close above its subtitle.
+	 */
+	#body-login.bs-login-split .login-form__headline {
+		font-size: 24px;
+		margin-bottom: 6px;
+	}
+
+	.bs-login-marketing {
+		position: fixed;
+		inset: 0 auto 0 0;
+		width: var(--bs-login-split-width);
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: 48px;
+		padding: 40px 36px 36px;
+		overflow-y: auto;
+		background-color: var(--bs-paper-strong);
+		/**
+		 * The faint grid over the panel ground. A 40px cell of two hairline
+		 * gradients rather than an SVG background: one image, no extra
+		 * request, and it recolours for free off the same ink-alpha border
+		 * token every card border on the page already uses.
+		 */
+		background-image:
+			repeating-linear-gradient(0deg,  var(--color-border) 0 1px, transparent 1px 40px),
+			repeating-linear-gradient(90deg, var(--color-border) 0 1px, transparent 1px 40px);
+		background-position: -1px -1px;
+		color: var(--bs-ink);
+	}
+
+	/**
+	 * Moved wholesale from #header .logo (js/login-marketing.js): same
+	 * element, same --image-logo background, just relocated. Its sizing does
+	 * NOT come along for the ride, though -- guest.css's `#header .logo`
+	 * rule is an ID selector on the element's OLD parent, so it stops
+	 * matching the moment the element is no longer inside `#header`, and an
+	 * empty div with a background-image and no size collapses to nothing.
+	 *
+	 * `aspect-ratio` from logo.svg's own viewBox (11485 x 2031) rather than a
+	 * guessed height: the wordmark is a wide, short lockup -- sampling the
+	 * mockup gets 233x34 at 2x, a 6.85:1 ratio, close enough to the source
+	 * asset's 5.65:1 that the gap is just anti-aliasing at the glyph edges --
+	 * so tying height to the real file stays correct if the mark is ever
+	 * redrawn, where a hardcoded pixel height would silently go stale.
+	 */
+	.bs-login-marketing__logo {
+		width: 140px;
+		aspect-ratio: 11485 / 2031;
+		height: auto;
+		margin: 0;
+		align-self: flex-start;
+		background-image: var(--image-logo);
+		background-repeat: no-repeat;
+		background-size: contain;
+		background-position: left center;
+	}
+
+	.bs-login-marketing__top {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 20px;
+	}
+
+	.bs-login-marketing__eyebrow {
+		margin: 12px 0 0;
+		font-family: var(--bs-mono);
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.13em;
+		text-transform: uppercase;
+		color: var(--bs-saffron-700);
+	}
+
+	.bs-login-marketing__heading {
+		margin: 0;
+		max-width: 15ch;
+		font-size: 40px;
+		font-weight: 650;
+		line-height: 1.1;
+		letter-spacing: -0.02em;
+		color: var(--bs-ink);
+	}
+
+	.bs-login-marketing__lede {
+		margin: 0;
+		max-width: 34ch;
+		font-size: 16px;
+		line-height: 1.6;
+		color: var(--color-text-light);
+	}
+
+	.bs-login-marketing__facts {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		margin: 0;
+	}
+
+	.bs-login-marketing__fact {
+		display: flex;
+		align-items: baseline;
+		gap: 16px;
+		padding: 11px 16px;
+		background-color: var(--bs-paper);
+		border: 1px solid var(--color-border);
+		border-inline-start: 4px solid var(--bs-green);
+		border-radius: var(--border-radius);
+	}
+
+	.bs-login-marketing__fact dt {
+		flex: 0 0 auto;
+		min-width: 110px;
+		font-family: var(--bs-mono);
+		font-size: 10px;
+		font-weight: 600;
+		letter-spacing: 0.13em;
+		text-transform: uppercase;
+		color: var(--bs-n600);
+	}
+
+	.bs-login-marketing__fact dd {
+		margin: 0;
+		font-size: 14px;
+		color: var(--bs-ink);
+	}
+}
+
 
 /* -- Assistant ------------------------------------------------------------- */
 
@@ -560,9 +2277,8 @@ tr.files-list__row[data-cy-files-list-row][aria-selected='true'] {
  * appears at full strength.
  *
  * It is also, happily, declared as tokens rather than painted inline, so this is a
- * four-line reassignment rather than a fight with `background: ... !important` on
- * a Vue scoped selector. Two of the four are gradients upstream; a solid colour
- * substitutes cleanly, including for the title, which is background-clip: text.
+ * four-line reassignment rather than a fight with `background: ... !important` on a
+ * Vue scoped selector.
  *
  * The selector has to be on the *body*, not :root. Nextcloud declares these at
  * `:root` and again at `[data-theme-light]` / `[data-theme-dark]`, and the latter
@@ -573,44 +2289,42 @@ tr.files-list__row[data-cy-files-list-row][aria-selected='true'] {
 body[data-themes] {
 	/**
 	 * Three of these must stay *gradients*, not colours. They are consumed as
-	 * `background-image`, and a bare colour there is invalid: it computes to
-	 * `none`. On the title that is not a harmless no-op -- the text is painted by
-	 * background-clip: text over a transparent fill, so losing the image renders
-	 * the heading invisible rather than saffron. Matching upstream's structure and
+	 * `background-image`, and a bare colour there is invalid: it computes to `none`.
+	 * On the title that is not a harmless no-op -- the text is painted by
+	 * background-clip: text over a transparent fill, so losing the image renders the
+	 * heading invisible rather than saffron. Matching upstream's structure and
 	 * changing only the hue is what keeps the substitution safe.
 	 */
 	--color-element-assistant:
-		linear-gradient(214deg, #cf6d14 12%, #b85f12 39%, #8c450f 86%);
+		linear-gradient(214deg, #cf6d14 12%, #ae5711 39%, #8c450f 86%);
 	--color-element-assistant-icon:
-		linear-gradient(214deg, #cf6d14 15%, #b85f12 40%, #8c450f 80%);
+		linear-gradient(214deg, #cf6d14 15%, #ae5711 40%, #8c450f 80%);
 	--color-border-assistant:
 		linear-gradient(125deg, #cf6d14 50%, #8c450f 125%);
 	/**
 	 * Upstream this is #F6F5FF -- a lavender so pale it reads as white. The
-	 * analogous choice is the card surface, not a saffron tint: it paints the
-	 * whole conversation sidebar, and at --color-primary-element-light that panel
-	 * came out a solid warm block in light and a saturated brown one in dark.
+	 * analogous choice is the card surface, not a saffron tint: it paints the whole
+	 * conversation sidebar, and at --color-primary-element-light that panel came out
+	 * a solid warm block in light and a saturated brown one in dark.
 	 */
 	--color-background-assistant: var(--bs-card);
 }
 
 /**
  * The dialog is white because the Assistant renders through PrimeVue, which ships
- * its own surface scale independent of Nextcloud's. Overriding `background-color`
- * on the dialog does not hold -- the content pane inside paints over it -- so the
+ * its own surface scale independent of Nextcloud's. Overriding `background-color` on
+ * the dialog does not hold -- the content pane inside paints over it -- so the
  * substitution goes at PrimeVue's own tokens, one level up from either fight.
  */
 .assistant-modal.assistant-modal {
 	/**
 	 * Inside the modal the Assistant reuses Nextcloud's own app layout -- an
 	 * .app-navigation sidebar beside .app-content -- but the dialog subtree
-	 * redefines --color-main-background as white, so both panes resolved to a
-	 * white that had nothing to do with the page behind them.
+	 * redefines --color-main-background as white, so both panes resolved to a white
+	 * that had nothing to do with the page behind them.
 	 *
-	 * Reasserting the variable is the whole fix for the dialog and the content
-	 * pane, because .app-content already paints from it. Pinning it to the card
-	 * surface rather than the page ground is deliberate: a dialog should read as
-	 * sitting above the page, not cut out of it.
+	 * Pinning it to the card surface rather than the page ground is deliberate: a
+	 * dialog should read as sitting above the page, not cut out of it.
 	 */
 	--color-main-background: var(--bs-card);
 }
@@ -619,7 +2333,7 @@ body[data-themes] {
 	/**
 	 * The sidebar is the exception: the Assistant paints it from
 	 * --color-primary-element-light, which is a saffron wash in light and a solid
-	 * brown block in dark. The mockups keep this panel neutral and let only the
+	 * brown block in dark. The screens keep this panel neutral and let only the
 	 * selected conversation carry the accent.
 	 *
 	 * Tripled because the rule being replaced is `.container[data-v-HASH]
@@ -629,23 +2343,300 @@ body[data-themes] {
 	background-color: var(--bs-card);
 }
 
+/**
+ * The standalone /apps/assistant/ page (screen 2h). Paired with js/assistant-chat.js,
+ * which builds the markup these rules paint: the eyebrow and policy badges above the
+ * thread, the sidebar's MODEL section and privacy note, and the two message-bubble
+ * treatments. See that file's own header comment for why everything is re-mounted from
+ * one MutationObserver instead of per-event hooks.
+ */
+
+/* The "Nextcloud Assistant" wordmark + sparkle bubble above the task-type pills.
+   BharatSuite carries no "Nextcloud" branding anywhere else in the interface, and
+   this is the one place the Assistant app prints its own name rather than
+   deferring to the eyebrow below -- so it is hidden outright rather than
+   relabelled. Unscoped to page or surface: the modal (screen 2h's header sparkle
+   icon) renders the identical .assistant-bubble markup, and both should lose it.
+   Quadrupled, not bare: the Assistant's own Vue-scoped rule is
+   `.assistant-form .assistant-bubble[data-v-HASH]` at (0,3,0) -- two classes plus
+   an attribute -- so a bare `.assistant-bubble` at (0,1,0) is not close, and even
+   tripling to tie at (0,3,0) would still lose to source order, the same failure
+   mode `.assistant-modal.assistant-modal.assistant-modal` documents above. One
+   more class than the target wins outright regardless of order, without naming
+   the hash. */
+.assistant-bubble.assistant-bubble.assistant-bubble.assistant-bubble {
+	display: none;
+}
+
+/* The history list's icon slot (.app-navigation-entry-icon) renders empty --
+   assistant-chat.js's mountHistoryIcons() fills it with a clock face per entry.
+   This is NOT core's own default for the class (that rule is display:flex,
+   already sized to --default-clickable-area). The Assistant page adds its own
+   scoped override on top -- `.container[data-v-HASH] .app-navigation-list
+   .app-navigation-entry-wrapper .app-navigation-entry-link
+   .app-navigation-entry-icon { display:none }`, one per task-type form -- at
+   (0,6,0): five classes plus the scope attribute, written for the ordinary case
+   where a conversation entry never has an icon at all. It does not distinguish
+   that from "an icon was injected after the fact", so the slot stayed collapsed
+   even with an SVG inside it. Nothing short of matching that selector's own
+   specificity beats it, and the hash in `[data-v-HASH]` changes on every
+   Nextcloud build -- so !important, same as the selected-row fix above facing
+   the same kind of unbeatable Vue-scoped rule. :has(svg) keeps it scoped to
+   entries that actually got an icon, rather than reopening the slot everywhere.
+   Width and height are already correct from core's own rule; only display
+   needs restoring. The active-row rule in the navigation section above already
+   recolours it to the accent; this is only the inactive default, which
+   otherwise inherited the link's full-strength ink rather than the mockup's
+   muted grey. */
+.assistant-wrapper .app-navigation-entry-icon:has(svg) {
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	color: var(--color-text-maxcontrast);
+}
+
+/**
+ * Hovering a history entry: screen 2h picks up a green inset edge, distinct
+ * from the saffron one the "-- Files --" section's global .active rule paints
+ * for the currently-open conversation (box-shadow: inset 3px 0 0
+ * var(--color-primary-element), a few hundred lines above). :not(.active)
+ * keeps the two from fighting on the one row that is both open and moused
+ * over. Same #app-navigation-vue-id specificity and !important as that rule,
+ * and for the identical reason -- NcAppNavigationItem's own hover state is
+ * Vue-scoped CSS that outranks a bare class.
+ */
+.assistant-wrapper #app-navigation-vue .app-navigation-entry:not(.active):hover {
+	box-shadow: inset 3px 0 0 var(--bs-green) !important;
+}
+
+/**
+ * Nextcloud's own sidebar-collapse button (.app-navigation-toggle-wrapper) is
+ * `position:absolute` against .app-navigation's own right edge, deliberately
+ * overlapping `--default-clickable-area` (44px) into .app-content so there is
+ * something to click -- confirmed against core's own compiled CSS
+ * (index-Dz9VUFRU.chunk.css): `inset-inline-end:calc(0px - var(--app-navigation-padding))`.
+ * The eyebrow was rendering directly at the top bar's left edge, right under it.
+ */
+.assistant-wrapper .session-area__top-bar__title {
+	padding-inline-start: var(--default-clickable-area, 44px);
+}
+
+/* Eyebrow: "ASSISTANT · ON-PREMISE" above the conversation title. */
+.bs-assistant-eyebrow {
+	font-family: var(--bs-mono);
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--bs-blue);
+	margin-bottom: 4px;
+}
+
+/* Policy badges, top-right of the thread header: outlined mono pills, one claim
+   per badge. Green for a true, permanent claim about the deployment; neutral for a
+   per-conversation one. */
+.bs-assistant-badges {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex: none;
+}
+
+.bs-assistant-badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 6px 12px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-small);
+	background: var(--bs-card);
+	font-family: var(--bs-mono);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--bs-ink);
+	white-space: nowrap;
+}
+
+.bs-assistant-badge--residency {
+	border-color: var(--bs-green-400);
+	background: var(--bs-green-100);
+	color: var(--bs-green-700);
+}
+
+/**
+ * "+ New chat": a solid saffron fill with white text, not the tertiary button
+ * NcAppNavigationNew renders by default (a saffron-washed outline, same
+ * treatment the sidebar's selected-row accent used to carry before that was
+ * neutralised -- see the "-- Assistant --" section's own opening comment).
+ * Tripled past NcAppNavigationNew's own scoped `[data-v-HASH]` rule, same
+ * device as the global button rule above.
+ */
+.assistant-wrapper .app-navigation-new .button-vue.button-vue.button-vue {
+	background-color: var(--bs-saffron);
+	color: #fff;
+	border-color: transparent;
+}
+
+.assistant-wrapper .app-navigation-new .button-vue.button-vue.button-vue:hover {
+	background-color: var(--bs-saffron-600);
+}
+
+/* -- Sidebar: MODEL section ------------------------------------------------- */
+
+.bs-assistant-model {
+	margin-top: 20px;
+	padding: 0 8px;
+}
+
+.bs-assistant-model__label {
+	margin: 0 0 8px;
+	padding: 0 4px;
+}
+
+.bs-assistant-model__card {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 4px;
+	border-radius: var(--border-radius-container);
+}
+
+.bs-assistant-model__icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--bs-n700);
+}
+
+.bs-assistant-model__name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 13.5px;
+	color: var(--bs-ink);
+}
+
+.bs-assistant-model__badge {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	padding: 3px 9px;
+	border: 1px solid;
+	border-radius: var(--border-radius-small);
+	font-family: var(--bs-mono);
+	font-size: 9.5px;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+}
+
+.bs-assistant-model__badge--active {
+	border-color: var(--bs-green-400);
+	background: var(--bs-green-100);
+	color: var(--bs-green-700);
+}
+
+.bs-assistant-model__badge--blocked {
+	border-color: var(--bs-saffron-400);
+	background: var(--bs-saffron-100);
+	color: var(--bs-saffron-700);
+}
+
+/* Privacy note, bottom of the sidebar: same tinted-card treatment as the dashboard's
+   Sovereignty / Recent activity cards, at the green step.
+   `.app-navigation-list` is a flex column (core's own rule) sized to the full sidebar
+   height with overflow-y:auto, so without `margin-top:auto` this card sits wherever
+   flow ends -- right under the MODEL section, with dead scrollable space below it
+   whenever the history list is short. `margin-top:auto` on a flex-column child pushes
+   it (and nothing after it, since it's the last child) to the container's own bottom
+   edge, pinning it there regardless of how many history entries precede it -- matching
+   screen 2h, where the note sits flush against the sidebar's bottom edge. */
+.bs-assistant-privacy {
+	margin: 16px 8px;
+	margin-top: auto;
+	padding: 14px 16px;
+	border: 1px solid var(--bs-green-400);
+	border-radius: var(--border-radius-container);
+	background: var(--bs-green-100);
+	color: var(--bs-green-700);
+	font-size: 12.5px;
+	line-height: 1.5;
+}
+
+/* -- Message bubbles --------------------------------------------------------
+ *
+ * The stock layout gives every turn the same left-aligned, borderless row. The
+ * screens right-align the user's own turns as peach bubbles and leave the
+ * assistant's replies as plain text beside its avatar -- so only .bs-msg-user
+ * gets a bubble at all.
+ */
+.bs-msg-user {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.bs-msg-user .message__content {
+	max-width: 640px;
+	padding: 14px 18px;
+	border-radius: var(--border-radius-container);
+	background: var(--bs-saffron-100);
+}
+
+/**
+ * .input-area__button-box is `flex-direction:column` upstream -- built for a
+ * single stacked control, the mic. Adding Send as a second child just stacked
+ * it below the mic rather than beside it. Screen 2h has no mic at all, but the
+ * brief is to keep it, only moved -- row-izing the box puts the two side by
+ * side at the input's own height instead of the mic floating above it.
+ *
+ * Tripled: upstream's own rule is `.input-area__button-box[data-v-HASH]`, a
+ * class plus an attribute selector at equal specificity to a doubled class,
+ * and that Vue-injected stylesheet loads after this one -- same device as
+ * .button-vue.button-vue.button-vue above.
+ */
+.assistant-wrapper .input-area__button-box.input-area__button-box.input-area__button-box {
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+}
+
+/**
+ * The Send button: same solid-saffron treatment as "+ New chat" above, not the
+ * bare unstyled button it was rendering as. Sits after the mic in the DOM (see
+ * assistant-chat.js's mountSend), and the row-ized box above puts that last-ness
+ * to visual use -- the mic ends up a slot to the left of Send instead of a
+ * separate row above it.
+ */
+.bs-assistant-send.button-vue.button-vue.button-vue {
+	padding: 0 20px;
+	min-height: var(--default-clickable-area, 44px);
+	border: none;
+	border-radius: var(--border-radius-element);
+	background-color: var(--bs-saffron);
+	color: #fff;
+}
+
+.bs-assistant-send.button-vue.button-vue.button-vue:hover {
+	background-color: var(--bs-saffron-600);
+}
+
 
 /* -- Mail ------------------------------------------------------------------ */
 
 /**
  * Mail derives a full-bleed radial gradient on its setup screen from
  * --color-primary. At Nextcloud's blue that is a soft wash; at saffron it is a
- * metre-wide orange blob behind the account form. The mockups put this screen on
- * the plain paper ground.
+ * metre-wide orange blob behind the account form. Screen 1d puts this on the plain
+ * paper ground.
  */
 .setup--themed.setup--themed.setup--themed {
 	/**
 	 * Mail's own rule is `.setup--themed[data-v-HASH]`, which is a class and an
-	 * attribute. Repeating the class is the ancestor-independent way past it --
-	 * the same device as `:root:root` above -- and unlike naming the hash it does
-	 * not break when Mail is rebuilt. The gradient is derived from
-	 * --color-primary-element, so there is no token to reassign here: saffron is
-	 * correct everywhere else it is used.
+	 * attribute. Repeating the class is the ancestor-independent way past it -- the
+	 * same device as `:root:root` above -- and unlike naming the hash it does not
+	 * break when Mail is rebuilt.
 	 */
 	background-image: none;
 	background-color: var(--color-main-background);
@@ -659,12 +2650,12 @@ body[data-themes] {
  * They are the loudest thing in the app and, in dark mode, the only thing that
  * glares.
  *
- * Deliberately a wash rather than a recolour. A hue rotation would turn them
- * saffron and match the palette exactly, but these are Talk's artwork, not ours,
- * and pushing someone else's illustrations through 190 degrees is the kind of
- * change that looks clever and ages badly. The values are the mockup pack's own
- * `.washed` treatment; dark gets a brightness step as well, because saturation
- * alone does not stop a bright blue glowing on an ink ground.
+ * Deliberately a wash rather than a recolour. A hue rotation would turn them saffron
+ * and match the palette exactly, but these are Talk's artwork, not ours, and pushing
+ * someone else's illustrations through 190 degrees is the kind of change that looks
+ * clever and ages badly. The values are the mockup pack's own `.washed` treatment --
+ * `filter:saturate(.72) contrast(.94)`; dark gets a brightness step as well, because
+ * saturation alone does not stop a bright blue glowing on an ink ground.
  */
 .dashboard-section__bar img,
 .dashboard-section__bar.image-container img {
@@ -681,3 +2672,164 @@ body[data-theme-dark-highcontrast] .dashboard-section__bar img {
 		filter: saturate(0.6) brightness(0.72) contrast(0.95);
 	}
 }
+
+/* ---- Login SSO and Badge Additions ---- */
+#body-login.bs-login-split {
+	background-color: #ffffff !important;
+}
+
+#body-login.bs-login-split .login-form__headline {
+	font-size: 28px !important;
+	font-weight: 700 !important;
+	letter-spacing: -0.03em;
+	color: #16202b !important;
+}
+
+#body-login.bs-login-split .input-field__label,
+#body-login.bs-login-split label[for="user"],
+#body-login.bs-login-split label[for="password"] {
+	text-transform: uppercase !important;
+	font-size: 11px !important;
+	font-weight: 700 !important;
+	letter-spacing: 1.5px !important;
+	color: #8c8a86 !important;
+}
+
+#body-login.bs-login-split .bs-sso-section {
+	margin-top: 24px;
+	margin-bottom: 24px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+#body-login.bs-login-split button.bs-sso-button {
+	display: flex !important;
+	align-items: center !important;
+	width: 100% !important;
+	padding: 12px 16px !important;
+	background-color: #f6f5f3 !important;
+	border: 1px solid #dcdad5 !important;
+	border-radius: 8px !important;
+	font-family: inherit !important;
+	font-size: 14px !important;
+	font-weight: 600 !important;
+	color: #16202b !important;
+	cursor: pointer !important;
+	transition: all 0.2s ease !important;
+	box-shadow: none !important;
+}
+
+#body-login.bs-login-split button.bs-sso-button:hover {
+	background-color: #efede9 !important;
+	border-color: #cfccce !important;
+}
+
+#body-login.bs-login-split .bs-sso-icon {
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	margin-right: 16px;
+	flex-shrink: 0;
+}
+
+#body-login.bs-login-split .bs-sso-icon.org-icon {
+	background-color: #1c4478; /* Navy */
+}
+
+#body-login.bs-login-split .bs-sso-icon.digi-icon {
+	background-color: #1a7f5a; /* Green */
+}
+
+#body-login.bs-login-split .bs-login-or {
+	display: flex;
+	align-items: center;
+	text-align: center;
+	margin-top: 16px;
+	margin-bottom: 8px;
+	color: #8c8a86;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 1.5px;
+}
+
+#body-login.bs-login-split .bs-login-or::before,
+#body-login.bs-login-split .bs-login-or::after {
+	content: '';
+	flex: 1;
+	border-bottom: 1px solid #dcdad5;
+}
+
+#body-login.bs-login-split .bs-login-or span {
+	padding: 0 16px;
+}
+
+/* Remember me wrapper */
+#body-login.bs-login-split .bs-remember-wrapper {
+	display: flex !important;
+	justify-content: space-between !important;
+	align-items: center !important;
+	width: 100% !important;
+	margin-top: 16px !important;
+	margin-bottom: 16px !important;
+}
+
+#body-login.bs-login-split .bs-forgot-password {
+	color: #cf6d14 !important;
+	font-size: 14px !important;
+	font-weight: 500 !important;
+	text-decoration: none !important;
+}
+
+/* Hide original labels if data-bs-label is set and show via pseudo element */
+#body-login.bs-login-split label[for="remember_login"][data-bs-label] {
+	font-size: 0 !important;
+}
+#body-login.bs-login-split label[for="remember_login"][data-bs-label]::after {
+	content: attr(data-bs-label);
+	font-size: 14px;
+	margin-left: 8px;
+	color: #16202b;
+}
+
+/* Round Checkbox */
+#body-login.bs-login-split input[type="checkbox"] {
+	border-radius: 50% !important;
+}
+
+/* Remove SVG from Sign in button */
+#body-login.bs-login-split button[type="submit"] svg,
+#body-login.bs-login-split .login-submit svg {
+	display: none !important;
+}
+
+#body-login.bs-login-split .bs-login-badge {
+	margin-top: 32px;
+	background-color: #eaf3ed;
+	border: 1px solid #cce3d5;
+	border-radius: 8px;
+	padding: 16px;
+	display: flex;
+	align-items: center;
+	font-size: 13px;
+	color: #16202b;
+}
+
+#body-login.bs-login-split .bs-badge-dot {
+	width: 8px;
+	height: 8px;
+	background-color: #1a7f5a;
+	border-radius: 50%;
+	margin-right: 12px;
+	flex-shrink: 0;
+}
+
+#body-login.bs-login-split .bs-login-badge strong {
+	font-weight: 600;
+}
+
+/* Hide alternative logins */
+#body-login.bs-login-split .login-additional {
+	display: none !important;
+}
+
