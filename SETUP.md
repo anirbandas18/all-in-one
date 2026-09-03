@@ -1,0 +1,777 @@
+# Setup steps
+
+This is Nextcloud AIO ("manual install" method) with all optional features enabled:
+Talk, Talk Recording, Collabora, ClamAV, Imaginary, Fulltextsearch, Whiteboard.
+
+**Office editors:** Collabora is the only one active. `nextcloud-aio-onlyoffice` and
+`nextcloud-aio-eurooffice` are still defined in `docker-compose.yml` but disabled —
+their profiles are out of `COMPOSE_PROFILES` and `ONLYOFFICE_ENABLED` /
+`EUROOFFICE_ENABLED` are `"no"`, so neither container starts. Both keep the cert-trust
+configuration they need (`NODE_EXTRA_CA_CERTS` plus an `update-ca-certificates`
+entrypoint wrapper), so enabling one is a matter of flipping its env var to `"yes"`
+and adding its profile — nothing else. Note the env var alone only tells Nextcloud to
+use the editor; without the profile the container never starts and documents fail to
+open.
+
+User files live in S3, served by a self-hosted single-node Ceph cluster in this same
+project — see **Object storage (S3 on self-hosted Ceph)** below for how it is wired
+and how to go back to local disk.
+
+All 14 images are pinned to tag `20260805_083533`, which bundles Nextcloud 33.0.7
+(per Anirban's request — confirmed by inspecting the image's baked-in
+`NEXTCLOUD_VERSION` before pinning, since AIO's own tags don't carry Nextcloud
+version numbers). AIO has never shipped a 34.x build; 33.0.7 is the newest version
+it actually provides. `NEXTCLOUD_STARTUP_APPS` also includes `integration_google`
+and `integration_onedrive` so both come pre-installed on a fresh install — each
+still needs its own OAuth app (Google Cloud Console / Azure AD) registered and
+configured in Nextcloud's admin settings before it actually connects to anything.
+
+1. `cp .env.example .env` and fill in real values — all the `change-me` secrets need
+   unique, good passwords (avoid `@` and `:` in them), and `NC_DOMAIN` needs to be
+   the hostname you'll actually use.
+   - **On macOS + Docker Desktop**, also change `NEXTCLOUD_MOUNT` and
+     `NEXTCLOUD_TRUSTED_CACERTS_DIR` away from their upstream defaults (`/mnt/` and
+     `/usr/local/share/ca-certificates/...`). Docker Desktop only bind-mounts paths
+     under locations it shares (your home directory, `/Volumes`, `/private`,
+     `/tmp`) — anything else fails on first `up` with `mounts denied`. Point both
+     at absolute paths under this checkout instead, e.g.
+     `/path/to/this/repo/host-mounts/mount`, and `mkdir -p` them first. Linux hosts
+     don't have this restriction and can keep the upstream defaults.
+
+2. Generate a self-signed TLS cert for that hostname (swap for a real cert outside
+   local dev). It **must** carry a `subjectAltName`: a CN-only cert is rejected
+   outright by Node/OpenSSL clients even once the CA is trusted, and the office
+   containers then fail to fetch documents with "Download failed" / "The document
+   could not be saved". `CA:TRUE` lets the cert act as its own trust anchor, which is
+   what makes it installable in the container trust stores in step 4a.
+   ```sh
+   sudo mkdir -p /etc/nginx/certs
+   cat > /tmp/nc-san.cnf <<'EOF'
+   [req]
+   distinguished_name = dn
+   x509_extensions = v3
+   prompt = no
+   [dn]
+   CN = nextcloud.local
+   [v3]
+   subjectAltName = DNS:nextcloud.local, DNS:localhost, IP:127.0.0.1
+   basicConstraints = critical, CA:TRUE
+   keyUsage = critical, digitalSignature, keyEncipherment, keyCertSign
+   extendedKeyUsage = serverAuth
+   EOF
+   sudo openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+     -keyout /etc/nginx/certs/nextcloud.local.key \
+     -out /etc/nginx/certs/nextcloud.local.crt \
+     -config /tmp/nc-san.cnf
+   ```
+   Adjust the filenames/CN/SAN if you chose a different `NC_DOMAIN`. Verify with:
+   ```sh
+   openssl x509 -in /etc/nginx/certs/nextcloud.local.crt -noout -ext subjectAltName
+   ```
+   If that prints "No extensions in certificate", the cert is wrong -- regenerate it.
+
+   Avoid a `.local` hostname for `NC_DOMAIN` on macOS. The OS routes `.local` through
+   mDNS/Bonjour and blocks for the full 5s multicast timeout on every lookup mDNS
+   cannot answer, even with the name in `/etc/hosts`, so every new connection pays a
+   flat 5s penalty. A `.test` name avoids it. Check with:
+   `curl -o /dev/null -w '%{time_namelookup}\n' https://<host>/`
+
+2a. Copy the cert into `NEXTCLOUD_TRUSTED_CACERTS_DIR` (see `.env`), named
+   `<NC_DOMAIN>.crt`. The compose file mounts that directory into the containers that
+   call back to Nextcloud over HTTPS. `nextcloud-aio-onlyoffice` and
+   `nextcloud-aio-eurooffice` additionally point `NODE_EXTRA_CA_CERTS` at that exact
+   filename (their document servers are pkg-bundled Node binaries, which validate
+   against Node's own baked-in CA list rather than the OS store), so the name has to
+   match `NC_DOMAIN`:
+   ```sh
+   cp /etc/nginx/certs/nextcloud.local.crt host-mounts/trusted-cacerts/nextcloud.local.crt
+   ```
+   The cert must also carry a `subjectAltName`; a CN-only cert is rejected outright by
+   Node/OpenSSL even when the CA is trusted. Re-copy this and recreate the affected
+   containers whenever the cert is regenerated, or the editors start failing with
+   "Download failed" / "The document could not be saved".
+
+3. Point the existing host nginx at it using `nginx-nextcloud.conf.sample` as a
+   starting point (update `server_name` and the cert paths to match), reload nginx.
+   Read the comment at the top of that file — HTTPS here isn't optional, AIO assumes
+   it unconditionally.
+
+4. Bring the stack up with every optional profile enabled. `.env`/`.env.example`
+   set `COMPOSE_PROFILES` to the full profile list, so Compose applies it to every
+   command automatically — no `--profile` flags needed for `up`, `down`, `stop`, or
+   `ps`:
+   ```sh
+   docker compose up -d
+   ```
+   First boot pulls a lot of images (Collabora, Elasticsearch for Fulltextsearch,
+   ClamAV's virus DB, etc.) — expect this to take a while and use several GB of
+   disk/RAM. OnlyOffice and EuroOffice are not pulled unless you add their profiles.
+
+   **If `COMPOSE_PROFILES` isn't set** (e.g. a shell that doesn't load `.env`), pass
+   the flags explicitly and keep them identical across every `up`/`down`/`stop` call:
+   ```sh
+   docker compose --profile collabora --profile talk --profile talk-recording \
+     --profile clamav --profile imaginary --profile fulltextsearch \
+     --profile whiteboard --profile ollama --profile james \
+     --profile context-chat up -d
+   ```
+   Add `--profile onlyoffice --profile eurooffice` (and set their `*_ENABLED` vars to
+   `"yes"`) only if you actually want those editors; they are off by default.
+   ```sh
+   ```
+   A command missing some of these flags doesn't just skip those services — Compose
+   treats them as outside the stack entirely for that command. This is not
+   theoretical: a bare `docker compose down -v` run without any profile flags once
+   deleted the volumes for the four always-on services (Nextcloud, database, redis,
+   apache) while silently leaving every profiled service's volume untouched,
+   forcing a full reinstall of Talk/Collabora/Context Chat/etc. See **Stopping the
+   stack** below — never run `down -v` on this repo unless you actually intend to
+   destroy all data.
+
+5. `docker compose logs nextcloud-aio-nextcloud` — confirm it installed cleanly.
+   `docker compose ps` — all containers should reach a healthy state eventually
+   (Collabora and ClamAV take the longest to pass their healthcheck on first boot).
+
+6. Add an entry for `NC_DOMAIN` to your machine's `/etc/hosts` pointing at
+   `127.0.0.1` (it's not real DNS — nothing else will resolve it), then visit
+   `https://<NC_DOMAIN>`, log in with `admin` / `NEXTCLOUD_PASSWORD` from `.env`.
+
+## Verifying it actually works
+
+```sh
+# 1. Nextcloud is installed and responding (adjust hostname to your NC_DOMAIN)
+curl -k https://nextcloud.local/status.php
+# expect: "installed":true
+
+# 2. Upload a file through the real API a user would hit
+echo "test file" > /tmp/test.txt
+curl -k -u admin:<NEXTCLOUD_PASSWORD> -T /tmp/test.txt \
+  https://nextcloud.local/remote.php/dav/files/admin/test.txt
+# expect: HTTP 201
+
+# 3. Read it back
+curl -k -u admin:<NEXTCLOUD_PASSWORD> \
+  https://nextcloud.local/remote.php/dav/files/admin/test.txt
+# expect: HTTP 200, body "test file"
+
+# 4. Confirm the optional apps actually got enabled, not just the containers started
+docker compose exec -u www-data nextcloud-aio-nextcloud php occ app:list --enabled | \
+  grep -iE "talk|richdocuments|files_fulltextsearch|files_antivirus"
+```
+(`-k` skips cert validation for the self-signed cert — drop it once you're on a
+real one.)
+
+If step 2 or 3 fails, check `docker compose logs nextcloud-aio-nextcloud` and
+`docker compose logs nextcloud-aio-apache`. If step 4 shows an app missing despite
+its container being healthy, check that its `*_ENABLED` var in `.env` is `"yes"`
+(with quotes) and that you passed its `--profile` flag on `up`.
+
+## Stopping the stack
+
+With `COMPOSE_PROFILES` set in `.env` (see step 4 above), plain `docker compose`
+commands already apply to every service. If you're running without it loaded,
+pass the same explicit `--profile` flags used on `up` to every command below, or
+Compose only touches the non-profiled services and leaves the rest running.
+
+Stop and remove the containers, keeping all data (named volumes persist):
+```sh
+docker compose down
+```
+
+Or just stop them (containers stick around, slightly faster to bring back with `up`):
+```sh
+docker compose stop
+```
+
+**Never run `docker compose down -v`** unless you deliberately want to destroy
+every named volume — Nextcloud's install, its database, all uploaded files, the
+Context Chat embeddings, everything. There is no per-service confirmation prompt.
+If you genuinely need to wipe and reinstall from scratch, running it *with*
+`COMPOSE_PROFILES` set (or the full explicit `--profile` list) at least makes it
+destroy everything consistently instead of silently destroying an inconsistent
+subset — which is what happened on 2026-08-25: a flagless `down -v` deleted only
+the always-on services' volumes (Nextcloud/database/redis/apache), leaving every
+profiled service (Ollama, Context Chat's embeddings, ClamAV's virus DB, Talk,
+Collabora, ...) running against data from a Nextcloud install that no longer
+existed, and required manually reinstalling every optional app from scratch.
+
+## Local AI assistant (Ollama)
+
+Per Anirban's request: a free, local LLM backend for Nextcloud's Assistant app, for
+local testing only — a commercial API (OpenAI/Anthropic) is meant to replace this
+when deploying to a real server, by changing `integration_openai`'s admin settings
+(nothing else needs to change).
+
+No GPU passthrough under Docker Desktop on Mac, so this runs on CPU — keep to small
+models, and expect the first request after a period of inactivity to be slow (model
+load + waiting for Nextcloud's background job cron tick, which can take a couple of
+minutes) before it warms up.
+
+1. Bring up the container (add `--profile ollama` to the `docker compose up` command
+   above) and pull the model set in `.env`'s `OLLAMA_MODEL`:
+   ```sh
+   docker compose exec nextcloud-aio-ollama ollama pull llama3.2:3b
+   ```
+2. `assistant` and `integration_openai` are in `NEXTCLOUD_STARTUP_APPS`, so a fresh
+   install gets them automatically — but that list only runs once, on first startup,
+   and installing an app doesn't configure it. On an already-provisioned instance
+   (or to point `integration_openai` at Ollama), run:
+   ```sh
+   CT=nextcloud-aio-nextcloud
+   docker compose exec -u www-data $CT php occ app:install integration_openai
+   docker compose exec -u www-data $CT php occ app:enable assistant
+   docker compose exec -u www-data $CT php occ config:app:set integration_openai url --value="http://nextcloud-aio-ollama:11434/v1"
+   docker compose exec -u www-data $CT php occ config:app:set integration_openai service_name --value="Ollama (local)"
+   docker compose exec -u www-data $CT php occ config:app:set integration_openai api_key --value="ollama"
+   docker compose exec -u www-data $CT php occ config:app:set integration_openai request_timeout --value="120"
+   docker compose exec -u www-data $CT php occ config:app:set integration_openai default_completion_model_id --value="llama3.2:3b"
+   docker compose exec -u www-data $CT php occ config:app:set integration_openai llm_provider_enabled --value="1"
+   docker compose exec -u www-data $CT php occ config:app:set integration_openai chat_endpoint_enabled --value="1"
+   ```
+   (`api_key` can be any non-empty value — Ollama doesn't check it.)
+3. Test in the UI: log in, open the Assistant (sparkle icon in the top nav, or via
+   the Apps list), pick "Free prompt", and submit something.
+
+Only the LLM/chat provider is enabled above. Translate, Generate image, and
+Transcribe/Text-to-speech are visible in the Assistant UI but won't work — each
+needs its own separate provider config (`translation_provider_enabled`,
+`t2i_provider_enabled`, `stt_provider_enabled`/`tts_provider_enabled` plus a model
+capable of that task) which isn't set up here.
+
+## Context Chat (Q&A over Nextcloud documents)
+
+Lets the Assistant app answer questions using the content of a user's own files as
+context, instead of just the bare LLM. This is separate infrastructure from the
+Ollama wiring above: it needs AppAPI (Nextcloud's framework for running external-app
+"ExApps") plus a running `context_chat_backend` container that does the actual
+embedding/retrieval, reusing the existing Ollama model as its text-to-text provider.
+
+Real Nextcloud AIO (the mastercontainer version) gives AppAPI a Docker socket so it
+can spin ExApp containers up/down itself. This repo deliberately doesn't do that —
+no container here has docker socket access. Instead, `context_chat_backend` runs as
+a normal profile-gated service like Ollama/James above (`nextcloud-aio-context-chat-backend`
+in `docker-compose.yml`), and gets registered with AppAPI as a **manual-install**
+deploy daemon: Nextcloud only ever calls it over plain HTTP on the shared bridge
+network, it never starts/stops/manages the container.
+
+**Hardware**: the CPU-only embedding path needs ~12GB RAM and 4+ AVX2-capable cores
+(per Nextcloud's own docs) on top of whatever the rest of this stack is already
+using. On Docker Desktop for Mac, raise the VM's memory allocation (Settings →
+Resources) before enabling this profile, or the container OOMs during model
+download/load. There's no GPU passthrough here, same limitation as Ollama above.
+
+1. Bring up the container (add `--profile context-chat` to the `docker compose up`
+   command), then install AppAPI and the `context_chat` PHP app (must match the
+   backend's version at the major.minor level — both are pinned to the `5.4.x`
+   line here):
+   ```sh
+   CT=nextcloud-aio-nextcloud
+   docker compose exec -u www-data $CT php occ app:install app_api
+   docker compose exec -u www-data $CT php occ app:install context_chat
+   ```
+2. Register a manual-install deploy daemon. `nextcloud-aio-context-chat-backend`
+   (the container's own hostname on the compose network) is what Nextcloud will
+   actually connect to — AppAPI combines this host with the port from the ExApp
+   registration below to build the URL it calls:
+   ```sh
+   docker compose exec -u www-data $CT php occ app_api:daemon:register \
+     manual_install "Manual Install" manual-install http \
+     nextcloud-aio-context-chat-backend "https://${NC_DOMAIN}"
+   ```
+3. Register the backend as an ExApp against that daemon. The `secret` here MUST
+   match `CONTEXT_CHAT_BACKEND_SECRET` in `.env` exactly — it's the shared HMAC key
+   the two sides use to authenticate each other:
+   ```sh
+   SECRET=$(grep "^CONTEXT_CHAT_BACKEND_SECRET=" .env | cut -d= -f2-)
+   docker compose exec -u www-data $CT php occ app_api:app:register \
+     context_chat_backend manual_install --wait-finish --json-info \
+     "{\"id\":\"context_chat_backend\",\"name\":\"Context Chat Backend\",\"daemon_config_name\":\"manual_install\",\"version\":\"5.4.1\",\"secret\":\"$SECRET\",\"port\":10034}"
+   ```
+   This blocks until the backend responds to a heartbeat and finishes its `/init`
+   step (downloading embedding models from Hugging Face on first run — can take a
+   while). If it times out, check `docker compose logs nextcloud-aio-context-chat-backend`
+   first; a heartbeat failure almost always means the two containers can't reach
+   each other on the compose network, not a config typo.
+4. Confirm it's live, then let Nextcloud's normal background job cron (already
+   running for this instance) do the initial indexing of existing files:
+   ```sh
+   docker compose exec -u www-data $CT php occ app_api:app:list
+   docker compose exec -u www-data $CT php occ app:list --enabled | grep -i context_chat
+   ```
+5. Test in the UI: Assistant app → a task type that shows "Context Chat" as an
+   available Q&A option. Indexing runs in the background, so a freshly uploaded
+   file may not be queryable for a few minutes.
+
+**Known gaps to expect when testing this** (confirmed against `context_chat_backend`'s
+source, not just its docs):
+- Legacy binary `.xls` isn't in its file-loader map (only `.xlsx`/`.xlsm`/`.ods` are)
+  — expect it to fail to parse.
+- Scanned/rasterized PDFs have no OCR step in the pipeline — pypdf only pulls an
+  existing text layer, so a scanned PDF indexes as empty/unsearchable even though
+  the upload itself succeeds.
+- Non-file content only shows up if the source app implements Context Chat's
+  `IContentProvider` interface — as of this writing only Mail and Bookmarks do
+  upstream. Polls does not, so "ask Context Chat about poll results" isn't
+  possible against a stock Polls install.
+- Create/edit-in-place/delete on indexed files IS expected to work: the PHP app
+  syncs those changes to the backend via an internal actions queue for reindexing.
+
+## Outbound email (Apache James)
+
+Per Anirban's request: SMTP with TLS, so Nextcloud can actually send transactional
+email (invites, password resets, share notifications) in local dev. This is an
+outbound relay only — no MX records, no inbound mail, no mailbox management beyond
+the one relay account and the one test recipient below.
+
+`james-conf/` in this repo is Apache James's stock `jpa-3.8.2` config. James's
+default config already has a `587` listener with `startTLS` + mandatory SMTP AUTH
+enabled out of the box — that's the one Nextcloud uses; ports `25`/`465` are
+James's untouched defaults and aren't used here.
+
+Deviations from stock, all marked with a `LOCAL CHANGE` comment in the file itself:
+
+| File | Change | Why |
+|---|---|---|
+| `domainlist.xml` | `defaultDomain` set to `NC_DOMAIN` | Needed for the relay account's domain. |
+| `keystore` | Generated, gitignored | TLS on 587. Step 1 below. |
+| `james-database.properties` | PostgreSQL instead of embedded Derby | Anirban's request. Uses its own database on the same server Nextcloud uses. |
+| `logback.xml` | `RollingFileAppender` removed | stdout only, so `docker compose logs` is the one place to read James output. |
+| `webadmin.properties` | `enabled=false` | Stock James binds an **unauthenticated** admin REST API on `0.0.0.0:8000`. Nothing here uses it; provisioning goes through `james-cli` over JMX. This also retires `jwt_publickey`, which shipped as James's public *demo* keypair. |
+| `smtpserver.xml`, `imapserver.xml`, `pop3server.xml`, `managesieveserver.xml` | keystore password → `${env:JAMES_KEYSTORE_SECRET}` | James reads config through commons-configuration2, so `${env:VAR}` resolves against the container environment. No secret in git. |
+
+**The PostgreSQL driver is mounted in, not baked into an image.** `apache/james:jpa-3.8.2`
+bundles just `derby-10.14.2.0.jar`, and OpenJPA resolves JDBC drivers off the JVM
+classpath, which the image's own `/root/jib-classpath-file` gives as
+`/root/resources:/root/classes:/root/libs/*`. That last entry is a wildcard, so
+`james-libs/postgresql-42.7.4.jar` is bind-mounted to `/root/libs/postgresql.jar` and
+picked up with no build step. It has to be mounted as a single *file*: mounting the
+directory would hide the 281 jars the image ships there and James would not start.
+`/root/extensions-jars` is not an alternative location either — James loads that with a
+separate Guice classloader for mailets, so a driver there is invisible to
+`DriverManager`. See `james-libs/README.md` for the jar's provenance and checksums.
+
+There is no `apache/james:postgres-3.8.x` to switch to instead; upstream's postgres
+distribution starts at `postgres-3.9.0` and is a different app with a different config
+layout. Every image in this stack is now pulled, none are built.
+
+1. Generate the keystore (skip if `james-conf/keystore` already exists):
+   ```sh
+   openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+     -keyout /tmp/james-key.pem -out /tmp/james-cert.pem -subj "/CN=nextcloud-aio-james"
+   openssl pkcs12 -export -in /tmp/james-cert.pem -inkey /tmp/james-key.pem \
+     -name james -out james-conf/keystore -password pass:james72laBalle
+   rm -f /tmp/james-key.pem /tmp/james-cert.pem
+   ```
+   The password must match `.env`'s `JAMES_KEYSTORE_SECRET`. `james72laBalle` is
+   the value James's own docs use in their `keytool` example, which is why it is the
+   default here. Change both together, or James refuses to start with
+   `java.io.IOException: keystore password was incorrect`.
+2. Build the image and bring up the container (add `--profile james`). The
+   `nextcloud-aio-james-db-init` one-shot creates James's database on
+   `nextcloud-aio-database` first; it is idempotent and exits 0 if the database is
+   already there.
+   ```sh
+   docker compose build nextcloud-aio-james
+   docker compose up -d nextcloud-aio-james
+   ```
+   Then add the mail domain and the relay account James authenticates as (password
+   from `.env`'s `JAMES_SMTP_PASSWORD`):
+   ```sh
+   JAMES_SMTP_PASSWORD=$(grep "^JAMES_SMTP_PASSWORD=" .env | cut -d= -f2-)
+   docker compose exec nextcloud-aio-james james-cli AddDomain nextcloud.local
+   docker compose exec nextcloud-aio-james james-cli AddUser "nextcloud@nextcloud.local" "$JAMES_SMTP_PASSWORD"
+   ```
+   **Accounts live in the database, so anyone who used the earlier Derby-backed
+   config has to re-run these two commands after switching.** Derby data is not
+   migrated. A missing recipient shows up as `550 5.1.1 Unknown user: ...` in
+   `nextcloud.log`, after a successful STARTTLS + AUTH.
+3. Point Nextcloud at it:
+   ```sh
+   CT=nextcloud-aio-nextcloud
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpmode --value="smtp"
+   docker compose exec -u www-data $CT php occ config:system:set mail_sendmailmode --value="smtp"
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpsecure --value="tls"
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtphost --value="nextcloud-aio-james"
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpport --value="587" --type=integer
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpauth --value=true --type=boolean
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpname --value="nextcloud@nextcloud.local"
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtppassword --value="$JAMES_SMTP_PASSWORD"
+   docker compose exec -u www-data $CT php occ config:system:set mail_domain --value="nextcloud.local"
+   docker compose exec -u www-data $CT php occ config:system:set mail_from_address --value="nextcloud"
+   ```
+   The self-signed keystore above means PHP's mailer will refuse the STARTTLS
+   handshake with "certificate verify failed" unless told to accept it — same
+   underlying issue as the browser's "not secure" warning, just on the SMTP side
+   instead of HTTPS:
+   ```sh
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpstreamoptions ssl allow_self_signed --value=true --type=boolean
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpstreamoptions ssl verify_peer --value=false --type=boolean
+   docker compose exec -u www-data $CT php occ config:system:set mail_smtpstreamoptions ssl verify_peer_name --value=false --type=boolean
+   ```
+4. Test with the real "forgot password" flow (needs a recipient mailbox to exist on
+   James, and the Nextcloud user to have that email set):
+   ```sh
+   docker compose exec nextcloud-aio-james james-cli AddUser "admin@nextcloud.local" "some-password"
+   docker compose exec -u www-data $CT php occ user:setting admin settings email admin@nextcloud.local
+   ```
+   Then use the "Forgot password?" link on the login page, or confirm the transport
+   works directly with:
+   ```sh
+   docker compose logs nextcloud-aio-james --tail=20
+   ```
+   A successful send shows `Successfully spooled mail ... from nextcloud@nextcloud.local`
+   followed by `Local delivered mail ... successfully`.
+
+### Getting mail out of the machine: the Mailtrap relay
+
+Steps 1-4 above only prove Nextcloud can hand a message to James, and that James can
+deliver it to a mailbox on *itself* (`admin@nextcloud.local`). Anything addressed
+outside `NC_DOMAIN` goes to the `relay` processor, and that is where it stops without
+the configuration below.
+
+**Why a relay at all.** James's `RemoteDelivery` can look up a recipient's MX record
+and deliver straight to it, no provider involved, and that is what it does when
+`JAMES_GATEWAY_HOST` is blank. It will not work here:
+
+- Outbound port 25 is blocked by nearly every ISP, and by AWS, GCP and Azure by
+  default.
+- `nextcloud.local` is not a real domain, so receiving servers reject the sender.
+- No reverse DNS, SPF, DKIM or DMARC, and no sending reputation, so anything that did
+  get through is spam-filed.
+
+Direct delivery becomes realistic only on a host with a stable public IP, port 25
+opened, reverse DNS matching James's HELO name, and a real domain carrying SPF, DKIM
+and DMARC records. Until then, relay through a provider.
+
+**Mailtrap Sandbox** is the right provider for dev: it accepts everything, delivers to
+no real inbox, and shows each message in a web viewer with the raw source and a
+spam/deliverability report. No domain to verify, no risk of mailing a real person by
+accident from test data.
+
+1. Sign up at <https://mailtrap.io> (the free tier is enough).
+2. In the left sidebar open **Email Testing → Sandboxes** — *not* Email Sending, which
+   is the product that delivers real mail.
+3. Click your sandbox (there is a default one, "My Sandbox").
+4. Open the **Integration** tab and choose **SMTP** (some accounts label the dropdown
+   "Integrations"; either way pick the plain SMTP credentials, not a framework
+   snippet).
+5. Copy **Username** and **Password**. These are per-sandbox, machine-generated, and
+   are *not* your Mailtrap account login. The panel shows the matching Host and Port,
+   which should agree with the defaults already in `.env.example`:
+   `sandbox.smtp.mailtrap.io` and one of 25, 465, 587 or 2525.
+6. Put them in `.env`:
+   ```sh
+   JAMES_GATEWAY_HOST=sandbox.smtp.mailtrap.io
+   JAMES_GATEWAY_PORT=587
+   JAMES_GATEWAY_USER=<Username from the Integration tab>
+   JAMES_GATEWAY_PASSWORD=<Password from the Integration tab>
+   ```
+   Use 587, not 465. Mailtrap offers STARTTLS on all four ports and this config uses
+   `startTLS`; 465 is implicit TLS and would need `sslEnable` instead.
+7. Restart James so it re-reads the config, then send to an address outside
+   `NC_DOMAIN`:
+   ```sh
+   docker compose up -d --force-recreate nextcloud-aio-james
+   docker compose exec -u www-data nextcloud-aio-nextcloud \
+     php occ user:setting admin settings email someone@example.com
+   ```
+   Trigger the "Forgot password?" flow, then watch both ends:
+   ```sh
+   docker compose logs nextcloud-aio-james --tail=30
+   ```
+   A successful relay logs `Successfully spooled mail` and then a `RemoteDelivery`
+   line naming `sandbox.smtp.mailtrap.io`. The message appears in the Mailtrap
+   sandbox inbox within a few seconds.
+
+**Reading failures.** They are specific enough to act on:
+
+| Log line | Cause |
+|---|---|
+| `535 5.7.0 Invalid credentials` | Username or password wrong, or the account login used instead of the sandbox's own credentials. |
+| `UnknownHostException: sandbox.smtp.mailtrap.io` | No DNS from the container. |
+| `Connection timed out` on 25 | The ISP is blocking it. Use 587. |
+| `javax.net.ssl` handshake errors | Port 465 with `startTLS`. Use 587, or switch the config to `sslEnable`. |
+| Nothing at all in the James log | The mail never left Nextcloud. That is steps 1-4 above, not the relay. |
+
+Note the credentials never enter git: `mailetcontainer.xml` holds `${env:...}`
+references, which James resolves through commons-configuration2 the same way
+`smtpserver.xml` resolves the keystore password.
+
+## Document signing (LibreSign)
+
+Digital signatures on PDFs, backed by LibreSign's own certificate authority (CFSSL) —
+each signer gets a personal certificate/private key issued by that CA, protected by a
+signature password they set themselves under Personal settings.
+
+LibreSign's binaries (JSignPdf, PDFtk, CFSSL) need a JVM plus a few native tools that
+aren't in the base image, so they're added via `NEXTCLOUD_ADDITIONAL_APKS` in `.env`:
+`ghostscript` (PDF rendering), `openjdk17-jre-headless` (bare `openjdk` isn't a valid
+Alpine package — use a versioned one), and `poppler-utils` (`pdfinfo`/`pdfsig`, used
+for signature validation and page dimension detection). These install fresh on every
+container start since they live in the container's root filesystem, not a persisted
+volume — no rebuild needed, just restart `nextcloud-aio-nextcloud` after editing
+`.env`.
+
+1. Install the app and download its signing binaries (needs the packages above
+   already present — restart the container first if you just added them):
+   ```sh
+   CT=nextcloud-aio-nextcloud
+   docker compose exec $CT php occ app:install libresign
+   docker compose exec $CT php occ libresign:install --all --architecture=x86_64
+   docker compose exec $CT php occ config:app:set libresign certificate_engine --value=cfssl
+   ```
+2. Generate the root certificate authority. This identity gets embedded in every
+   document signed from here on — regenerating it later invalidates certificates
+   already issued to users, so use real org details, not placeholders, before any
+   non-throwaway use:
+   ```sh
+   docker compose exec $CT php occ libresign:configure:cfssl \
+     --cn="<team/org name>" -o="<organization>" -c="<country code, e.g. IN>"
+   ```
+3. Verify everything resolved correctly:
+   ```sh
+   docker compose exec $CT php occ libresign:configure:check
+   ```
+   All rows should show `success` — if `poppler` shows `info`/not-working right after
+   adding the apk package, the check result was cached from before the restart; just
+   re-run it.
+4. Each user who wants to sign sets their own signature password once, under Personal
+   settings → LibreSign, which issues them a personal certificate from the root CA.
+   From there, requesting/completing a signature works from a file's context menu in
+   the Files app.
+
+## User limit enforcement (Nextcloud AIO Tools)
+
+Custom Nextcloud PHP app (not from the app store — lives in this repo at
+`nextcloud-custom-apps/nc_aio_tools`, bind-mounted into both
+`nextcloud-aio-nextcloud` and `nextcloud-aio-apache` under
+`custom_apps/nc_aio_tools`) that caps the total number of user accounts at
+the `NC_USER_LIMIT` value in `.env`.
+
+- Listens on `OCP\User\Events\BeforeUserCreatedEvent` and throws a
+  `HintException` once the account count would reach the limit. That event
+  fires from `IUserManager::createUser()`, the single code path shared by the
+  Settings → Users web UI, `occ user:add`, and the provisioning API — so all
+  three are blocked the same way, and the web UI surfaces the exception's hint
+  text as an error toast.
+- Shows the number of remaining free user slots in the bottom-left corner of
+  Settings → Users (or "Unlimited users" if `NC_USER_LIMIT` is blank/unset).
+- The bind mount only shadows the `nc_aio_tools` subdirectory of
+  `custom_apps`, not the whole directory, so it doesn't hide the
+  `integration_google`/`integration_onedrive` apps already installed there.
+
+No manual enable step is needed. `nextcloud-exec-commands.sh` runs
+`occ app:enable nc_aio_tools` on every container start (idempotent), through AIO's
+`NEXTCLOUD_EXEC_COMMANDS` hook — see **Custom occ commands** below. To enable it by
+hand anyway:
+```sh
+docker compose exec -u www-data nextcloud-aio-nextcloud php occ app:enable nc_aio_tools
+```
+
+Set the limit in `.env` and restart the `nextcloud-aio-nextcloud` container to
+pick it up (it's read live via `getenv()` on every check, not cached):
+```sh
+# .env
+NC_USER_LIMIT=25
+```
+Leave it blank to disable enforcement entirely — the free-slot badge then
+reads "Unlimited users".
+
+## Custom occ commands (NEXTCLOUD_EXEC_COMMANDS)
+
+AIO's nextcloud image runs `/run-exec-commands.sh` as a supervisord program. Once
+Apache is reachable it executes whatever `NEXTCLOUD_EXEC_COMMANDS` contains. That is
+upstream's supported hook for custom occ work, so this repo uses it instead of forking
+[AIO's entrypoint.sh](https://github.com/nextcloud/all-in-one/blob/main/Containers/nextcloud/entrypoint.sh)
+or layering a custom nextcloud image.
+
+`docker-compose.yml` sets `NEXTCLOUD_EXEC_COMMANDS=bash /nextcloud-exec-commands.sh`
+and bind-mounts `nextcloud-exec-commands.sh` read-only, rather than inlining a shell
+script into a YAML string, so the script stays reviewable and diffable. It runs as
+`www-data` on **every** container start and is idempotent. It currently:
+
+1. Waits for the install/upgrade to finish (AIO waits for Apache, not for occ to be usable).
+2. Runs `occ richdocuments:activate-config` when `COLLABORA_ENABLED=yes`.
+3. Runs `occ app:enable nc_aio_tools` if not already enabled.
+4. Applies `DEFAULT_QUOTA` to the `files` app default and to every existing account.
+5. Enables every app in `NEXTCLOUD_DEFAULT_APPS` and sets `defaultapp` to that list.
+6. Applies `CLAMAV_MAX_FILE_SIZE` to the `files_antivirus` scan limits.
+
+Steps 3 and 4 replace, respectively, a manual one-time `occ app:enable` and the former
+`nextcloud-aio-post-install` one-shot service, both of which are gone.
+
+> **Do not drop step 2.** AIO's `run-exec-commands.sh` activates Collabora's config only
+> in its `else` branch, i.e. only when `NEXTCLOUD_EXEC_COMMANDS` is *unset*. Setting the
+> variable takes over the whole hook, so omitting that call silently breaks Collabora's
+> WOPI config on every restart.
+
+## Default apps
+
+`NEXTCLOUD_DEFAULT_APPS` in `.env` lists the apps that must be enabled, in Anirban's
+priority order (PR #1 review). The custom styling only applies to apps that are on.
+
+```
+dashboard,files,assistant,context_chat,richdocuments,mail,spreed,previewgenerator
+```
+
+`nextcloud-exec-commands.sh` enables each one on every container start and sets the
+same list as `defaultapp`, whose first **enabled** entry decides where users land after
+login. `NEXTCLOUD_STARTUP_APPS` is not enough by itself: AIO runs that list once, on a
+fresh install only, so it does nothing for an instance that already exists.
+
+Two limits worth knowing:
+
+- **`mail` and `previewgenerator` come from the app store, not the image.** The hook
+  enables them but will not download them, since fetching from the internet on every
+  container start is not something a startup hook should do. Run
+  `occ app:install mail previewgenerator` once per instance; the hook reports and skips
+  apps it can't find rather than failing.
+- **This does not set the order of icons in the top bar.** That is a per-user setting
+  (`core`/`apporder` in `NavigationManager`) and Nextcloud exposes no admin-level
+  default for it, so the priority order applies to the landing page only.
+
+`previewgenerator` also does nothing until `occ preview:generate-all` has been run once
+and a cron job keeps it topped up — installing it only registers the commands.
+
+## Antivirus scan limits (ClamAV)
+
+`CLAMAV_MAX_FILE_SIZE` in `.env` caps what ClamAV scans, in bytes. Default `10485760`
+(10 MB). It is applied by `nextcloud-exec-commands.sh` to two `files_antivirus`
+settings:
+
+| Setting | Meaning |
+|---|---|
+| `av_max_file_size` | Files larger than this are skipped entirely. `-1` means no cap. |
+| `av_stream_max_length` | How much of a file is streamed to clamd. |
+
+> **The `MAX_SIZE` env var on `nextcloud-aio-clamav` does nothing.** That image's
+> `/start.sh` never reads it, and its `clamd.conf` ships hardcoded `2000M` values. It
+> is left in place because it comes from upstream AIO's compose file, but the limits
+> Nextcloud actually enforces are the two app settings above. Verified by grepping the
+> running container.
+
+Files **above** the cap are accepted by Nextcloud **without being scanned**, so this
+trades coverage for throughput. `av_infected_action` is `only_log`, meaning detections
+are logged rather than blocked — worth revisiting before any real deployment.
+
+## Object storage (S3 on self-hosted Ceph)
+
+Nextcloud's user files live in an S3 bucket served by the `nextcloud-aio-ceph`
+service, not on local disk. AIO's nextcloud image ships
+`/var/www/html/config/s3.config.php`, which builds the `objectstore` block from
+`OBJECTSTORE_S3_*` environment variables and activates it **only when
+`OBJECTSTORE_S3_BUCKET` is non-empty**. Those variables are passed through in
+`docker-compose.yml`, so this needs no custom config.php and no patching.
+
+`quay.io/ceph/demo` runs a whole single-node cluster — mon, mgr, osd, rgw — in one
+container, and creates the RGW user and the bucket itself on first boot from the same
+`OBJECTSTORE_S3_KEY` / `_SECRET` / `_BUCKET` that Nextcloud authenticates with. There
+is nothing to provision by hand and no credentials to obtain from anywhere.
+
+```sh
+# .env -- shipped defaults, already pointing at the Ceph in this project
+OBJECTSTORE_S3_BUCKET=nextcloud
+OBJECTSTORE_S3_KEY=change-me         # Ceph CREATES the RGW user with these
+OBJECTSTORE_S3_SECRET=change-me
+OBJECTSTORE_S3_REGION=us-east-1      # RGW ignores it; the S3 client demands a value
+OBJECTSTORE_S3_HOST=nextcloud-aio-ceph
+OBJECTSTORE_S3_PORT=8080
+OBJECTSTORE_S3_SSL=false             # internal bridge network only, never published
+OBJECTSTORE_S3_USEPATH_STYLE=true    # required for RGW
+OBJECTSTORE_S3_AUTOCREATE=true
+CEPH_SUBNET=172.28.0.0/24
+CEPH_IP=172.28.0.20
+```
+
+`ceph` is in `COMPOSE_PROFILES`. To go back to local disk instead, blank
+`OBJECTSTORE_S3_BUCKET` and drop `ceph` from that list, on a fresh install.
+
+Points worth knowing before changing any of this:
+
+- **The keys are not issued by anyone.** The container creates an RGW user from
+  whatever `OBJECTSTORE_S3_KEY`/`_SECRET` hold on the first boot. Editing them later
+  does not rename that user, it only stops Nextcloud authenticating.
+- **`CEPH_IP` is fixed on purpose.** Ceph writes the mon address into its monmap and
+  into `/etc/ceph/ceph.conf` at bootstrap and never reconciles a changed one, so a
+  Compose-assigned address would break the cluster the first time container start
+  order changed. That is also why the bridge network has an explicit subnet. If
+  `172.28.0.0/24` collides with a VPN or LAN route, change `CEPH_SUBNET` and
+  `CEPH_IP` together — an already-bootstrapped cluster has the old address on disk
+  and has to be recreated.
+- **`OBJECTSTORE_S3_HOST` is the service name, and that only works because of
+  `RGW_NAME`.** RGW reads a dot-less `Host:` header as a virtual-hosted-style bucket
+  name and answers every path-style request with `NoSuchBucket`. The hand-built stack
+  that preceded this one had to hardcode the container's IP for exactly that reason.
+  Pinning `RGW_NAME` to the same hostname puts it in `rgw dns name`, so RGW knows the
+  header names itself. Change one and change the other.
+- **Resource cost.** The image is ~1.9 GB and the cluster wants roughly 1-2 GB of RAM
+  on top of the rest of the stack. On Docker Desktop, raise the VM's memory before
+  running this alongside `fulltextsearch`, `ollama` and `context-chat`.
+- **The image comes from an archived project.** `github.com/ceph/ceph-container` went
+  read-only in December 2024, and Ceph's current Containerfile has no demo/all-in-one
+  entrypoint, so this is the last build that exists: Ceph 19.2.0 squid, pinned by
+  digest. Fine for a dev S3 endpoint, but it will not track Ceph releases. Pointing
+  `OBJECTSTORE_S3_HOST` at a real cluster is a host/port/credentials change and
+  nothing else.
+- **`DEMO_DAEMONS=osd,rgw` is load-bearing.** At `all` the entrypoint also runs
+  `bootstrap_rest_api`, which calls `ceph mgr module enable restful` under `set -e`;
+  squid dropped that mgr module, so the script dies before writing its `I_AM_A_DEMO`
+  marker files and the container crash-loops forever afterwards. Do not widen it
+  without re-testing a restart.
+- **Single-OSD tuning.** `CEPH_ARGS` sets `osd_pool_default_size=1` because one OSD
+  cannot hold the entrypoint's hardcoded two replicas, which would otherwise leave
+  every pool permanently `active+undersized+degraded`. It has to be `CEPH_ARGS` and
+  not `ceph config set`: a value in `ceph.conf` outranks the mon config database, so
+  new pools keep coming up at size 2. `ceph -s` should read `HEALTH_OK`.
+
+Checking it end to end, once the stack is up:
+
+```sh
+docker compose exec nextcloud-aio-ceph ceph -s
+# expect: health: HEALTH_OK, "rgw: 1 daemon active"
+
+docker compose exec -u www-data nextcloud-aio-nextcloud \
+  php /var/www/html/occ config:system:get objectstore
+# expect: class \OC\Files\ObjectStore\S3, bucket nextcloud, hostname nextcloud-aio-ceph
+
+# upload a file the way a user would, then confirm the bytes are really in Ceph
+curl -u admin:PASSWORD -T /tmp/probe.txt \
+  https://$NC_DOMAIN/remote.php/dav/files/admin/probe.txt
+docker compose exec nextcloud-aio-ceph \
+  radosgw-admin bucket stats --bucket=nextcloud | grep num_objects
+# expect: the count goes up, and /mnt/ncdata holds no file bodies
+```
+
+**This is an install-time decision.** It sets *primary* object storage, so on a fresh
+install everything goes to the bucket, but pointing an instance that already holds
+files at a bucket does not move them — Nextcloud will simply stop finding the old ones.
+Migrating an existing instance is a separate data-migration exercise, not a config flip.
+
+Two related questions from the review that are *not* separate decisions:
+
+- **Talk recordings** (`nextcloud_aio_talk_recording:/tmp`) are not a storage choice.
+  The recorder writes an interim file to that volume, then uploads the finished
+  recording into Nextcloud over the normal API, so it lands wherever Nextcloud files
+  land. Point Nextcloud at S3 and recordings follow automatically.
+- **Whiteboard backup** (`BACKUP_DIR=/tmp`) is a crash-recovery dump of in-progress
+  boards, not user-visible file storage. Upstream `nextcloud/whiteboard` supports a
+  filesystem path only; there is no S3 option to enable.
+
+Note this is unrelated to AIO's own "S3 support", which refers to its bundled MinIO
+container for *backups*.
+
+## Known limitations (accepted for this stage)
+
+- No backup solution configured (AIO has an optional Backup container; not enabled
+  here).
+- Self-signed cert generated manually above — swap for a real one (e.g. Let's
+  Encrypt) outside local dev.
+- All state lives in named Docker volumes (`nextcloud_aio_*`) with no redundancy —
+  losing them loses everything. That now includes user files, which live in Ceph:
+  one OSD, one replica, `nextcloud_aio_ceph_var`.
+- `NC_DOMAIN` being a fake/local-only hostname (not real DNS) means every container
+  that needs to resolve it has to be told about it explicitly. The `talk` service
+  already has an `extra_hosts` entry for this (its WebRTC/TURN server otherwise
+  crash-loops with "Invalid TURN address") — if a real domain with real DNS
+  replaces `NC_DOMAIN` later, that `extra_hosts` line becomes unnecessary but
+  harmless.
