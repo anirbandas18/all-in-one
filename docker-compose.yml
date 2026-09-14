@@ -75,16 +75,15 @@ services:
       timeout: 30s
       start_interval: 5s
       retries: 3
-    ports:
-      # Bound to localhost only -- the existing host nginx reverse-proxies to this,
-      # same as the previous stack. AIO hardcodes OVERWRITEPROTOCOL=https on the
-      # nextcloud container (see nextcloud-aio-nextcloud below), so nginx must
-      # actually terminate HTTPS (self-signed is fine for local dev) -- plain HTTP
-      # proxying like the old nginx-nextcloud.conf.sample will cause Nextcloud to
-      # think it's on HTTPS when it isn't. See nginx-nextcloud.conf.sample and
-      # SETUP.md for the updated nginx config this requires.
-      - ${APACHE_IP_BINDING}:${APACHE_PORT}:${APACHE_PORT}/tcp
-      - ${APACHE_IP_BINDING}:${APACHE_PORT}:${APACHE_PORT}/udp
+    # Not published to the host -- nextcloud-aio-nginx below reverse-proxies to this
+    # over the internal docker network by service name, so no host port is needed
+    # here at all (same expose-only treatment as nextcloud-aio-nextcloud/redis/
+    # database). AIO hardcodes OVERWRITEPROTOCOL=https on the nextcloud container
+    # (see nextcloud-aio-nextcloud below), so nginx must actually terminate HTTPS
+    # (self-signed is fine for local dev) -- plain HTTP proxying would cause
+    # Nextcloud to think it's on HTTPS when it isn't.
+    expose:
+      - "${APACHE_PORT}"
     environment:
       - NC_DOMAIN
       - NEXTCLOUD_HOST=nextcloud-aio-nextcloud
@@ -115,6 +114,57 @@ services:
       - /usr/local/apache2/logs
       - /tmp
       - /home/www-data
+    cap_drop:
+      - NET_RAW
+
+  # Browser-facing TLS termination, replacing the old requirement for a separately
+  # installed/configured nginx on the host (nginx-nextcloud.conf.sample is now just
+  # a reference for anyone who wants a real host reverse proxy instead -- e.g. a
+  # production deploy fronted by a load balancer). This service is the whole stack's
+  # only host-published HTTP(S) port; everything else (apache above included) stays
+  # internal to the docker network.
+  #
+  # nginx-nextcloud.conf.template is rendered by the nginx image's OWN entrypoint
+  # (docker-entrypoint.d/20-envsubst-on-templates.sh), not by Compose: any file
+  # mounted under /etc/nginx/templates/*.template gets envsubst'd (using only
+  # variables actually present in the container's environment -- see `environment`
+  # below) into /etc/nginx/conf.d/ on every container start. This was tried as a
+  # Compose `configs.content` block first (real .env interpolation, no extra
+  # mechanism to know about) but this Compose version rejects inline config content
+  # on a `read_only: true` service ("`file` is the sole supported option") --
+  # nginx's own templating is the standard, well-documented way to get the same
+  # env-var substitution without that restriction.
+  nextcloud-aio-nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      nextcloud-aio-apache:
+        condition: service_started
+        required: true
+    ports:
+      - "${NC_HTTPS_PORT}:443"
+      - "80:80"
+    volumes:
+      # The self-signed cert + private key SETUP.md generates for NC_DOMAIN. Kept
+      # out of the repo (host-mounts/ is gitignored wholesale) -- same per-machine
+      # secret treatment as james-conf/keystore.
+      - ${NGINX_CERTS_DIR}:/etc/nginx/certs:ro
+      - ./nginx-nextcloud.conf.template:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      - TZ=${TIMEZONE}
+      # Read by the envsubst templating above, not by nginx itself -- these three
+      # are the only names nginx-nextcloud.conf.template references.
+      - NC_DOMAIN
+      - NC_HTTPS_PORT
+      - APACHE_PORT
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+      # Where the entrypoint writes the envsubst'd template output -- must be
+      # writable even though the rest of the filesystem is read-only.
+      - /etc/nginx/conf.d
     cap_drop:
       - NET_RAW
 
@@ -231,8 +281,9 @@ services:
     # This image auto-adds "127.0.0.1 NC_DOMAIN" to /etc/hosts, assuming stock AIO's
     # shared-netns setup with Apache. In this split-container topology that points
     # nowhere, so internal calls to https://${NC_DOMAIN} (e.g. Talk signaling) hang
-    # for ~10s and fail. host-gateway routes them into the host nginx instead --
-    # same fix already applied to nextcloud-aio-talk below.
+    # for ~10s and fail. host-gateway routes them via the host's published port
+    # into nextcloud-aio-nginx instead -- same fix already applied to
+    # nextcloud-aio-talk below.
     extra_hosts:
       - "${NC_DOMAIN}:host-gateway"
     volumes:
@@ -445,7 +496,8 @@ services:
     # Collabora's own loopback instead of Apache, so its WOPI CheckFileInfo callback to
     # https://${NC_DOMAIN} times out ("Unauthorized WOPI host" / "CheckFileInfo failed"
     # in coolwsd logs) even though wopi_url/aliasgroup1 are both configured correctly.
-    # host-gateway routes it into the host nginx instead, same fix as the others.
+    # host-gateway routes it via the host's published port into nextcloud-aio-nginx
+    # instead, same fix as the others.
     extra_hosts:
       - "${NC_DOMAIN}:host-gateway"
     restart: unless-stopped
@@ -914,10 +966,10 @@ services:
       - AA_VERSION=3.0.0
       - APP_PERSISTENT_STORAGE=/persistent_storage
       # Plain HTTP straight to the apache container on the shared bridge network --
-      # NC_DOMAIN only resolves via the *host's* /etc/hosts, and the host nginx that
-      # terminates TLS for it isn't part of this docker network at all, so this
-      # container can't reach "https://${NC_DOMAIN}" for its status/capability
-      # callbacks. Collabora's aliasgroup1 does the same direct-to-apache-container
+      # simpler than routing back out through nextcloud-aio-nginx's TLS (which this
+      # container would then need to trust) just to come back in. NC_DOMAIN itself
+      # only resolves via the host's /etc/hosts anyway. Collabora's aliasgroup1
+      # does the same direct-to-apache-container
       # thing elsewhere in this file.
       - NEXTCLOUD_URL=http://nextcloud-aio-apache:${APACHE_PORT}
       - CC_DOWNLOAD_MODELS_FROM_HF=true
