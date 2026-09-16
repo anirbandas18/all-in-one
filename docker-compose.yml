@@ -135,7 +135,7 @@ services:
   # nginx's own templating is the standard, well-documented way to get the same
   # env-var substitution without that restriction.
   nextcloud-aio-nginx:
-    image: nginx:1.27-alpine
+    image: nginx:alpine
     depends_on:
       nextcloud-aio-apache:
         condition: service_started
