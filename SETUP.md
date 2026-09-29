@@ -781,3 +781,12 @@ container for *backups*.
   crash-loops with "Invalid TURN address") — if a real domain with real DNS
   replaces `NC_DOMAIN` later, that `extra_hosts` line becomes unnecessary but
   harmless.
+
+
+openssl x509 -outform pem -in tls/example.com+5.pem -out tls/localhost.crt
+
+
+openssl req -x509 -newkey ed25519 -days 3650 \
+  -noenc -keyout tls/localhost.key -out tls/localhost.crt -subj "/CN=localhost" \
+  -addext "subjectAltName=DNS:localhost,IP:10.0.0.1"
+

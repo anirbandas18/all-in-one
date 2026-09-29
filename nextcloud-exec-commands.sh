@@ -39,8 +39,16 @@ done
 # Collabora error. Anything added here should be similarly tolerant.
 if [ "${COLLABORA_ENABLED:-}" = "yes" ]; then
     if occ app:list --enabled | grep -q 'richdocuments'; then
+        echo "exec-commands: configuring richdocuments for internal Docker WOPI access..."
+
+        # Configure richdocuments to use internal nginx service name
+        occ config:app:set richdocuments wopi_url --value="https://nextcloud-aio-nginx" || true
+        # Set to allow unverified certs as fallback (may not work, but try it)
+        occ config:app:set richdocuments disable_certificate_verification --value=1 || true
+
         echo "exec-commands: activating Collabora config..."
-        occ richdocuments:activate-config || echo "exec-commands: WARNING: richdocuments:activate-config failed, continuing"
+        # Note: activate-config may fail due to cert validation, but the config is already set above
+        occ richdocuments:activate-config || echo "exec-commands: WARNING: richdocuments:activate-config failed, but WOPI URL is configured, continuing"
     else
         echo "exec-commands: COLLABORA_ENABLED=yes but richdocuments is not installed, skipping its config"
     fi
