@@ -39,12 +39,51 @@ done
 # Collabora error. Anything added here should be similarly tolerant.
 if [ "${COLLABORA_ENABLED:-}" = "yes" ]; then
     if occ app:list --enabled | grep -q 'richdocuments'; then
+        # Same call upstream AIO makes (php/containers.json): discovery and WOPI
+        # callbacks go to apache's internal HTTP listener (23973) by its docker
+        # network alias, never through NC_DOMAIN. With NC_DOMAIN=localhost that name
+        # would point at the calling container itself, and any other name would need a
+        # certificate it can verify. Browsers still reach Collabora at
+        # https://${NC_DOMAIN}, because Collabora builds those URLs from server_name.
         echo "exec-commands: activating Collabora config..."
-        occ richdocuments:activate-config || echo "exec-commands: WARNING: richdocuments:activate-config failed, continuing"
+        occ richdocuments:activate-config \
+            --wopi-url='http://nextcloud-aio-apache.nextcloud-aio:23973' \
+            --callback-url='http://nextcloud-aio-apache.nextcloud-aio:23973' \
+            || echo "exec-commands: WARNING: richdocuments:activate-config failed, continuing"
     else
         echo "exec-commands: COLLABORA_ENABLED=yes but richdocuments is not installed, skipping its config"
     fi
 fi
+
+# ClamAV off: disable the antivirus app too. REMOVE_DISABLED_APPS=no (required, see
+# .env) means AIO never disables it, and files_antivirus left enabled with no clamd
+# behind it rejects every upload with "No connection to anti virus". Idempotent, and
+# non-fatal when the app was never installed.
+if [ "${CLAMAV_ENABLED:-}" != "yes" ]; then
+    if occ app:list --enabled | grep -q '^  - files_antivirus:'; then
+        echo "exec-commands: ClamAV is off, disabling files_antivirus..."
+        occ app:disable files_antivirus || echo "exec-commands: WARNING: could not disable files_antivirus, continuing"
+    fi
+fi
+
+# Talk on a localhost NC_DOMAIN: drop the hosted signaling server AIO registers.
+# AIO registers it as https://$NC_DOMAIN/standalone-signaling/, and Nextcloud (PHP, so
+# libcurl) calls that URL itself whenever a conversation is created or changes. libcurl
+# resolves `localhost` and `*.localhost` to loopback without reading /etc/hosts, so
+# inside this container the call lands on the container itself and every conversation
+# create fails with "cURL error 7: Failed to connect to localhost:443". Browsers and
+# the signaling container reach the endpoint fine, which is why this only shows up
+# server-side. Without the server entry Talk uses its built-in signaling: calls work,
+# suited to small groups, and call recording (which needs the hosted server) is off.
+# AIO re-adds the entry on every start, so this runs every start as well.
+case "${NC_DOMAIN:-}" in
+    localhost|*.localhost)
+        for server in $(occ talk:signaling:list --output=plain 2>/dev/null | sed -n 's/^ *server: //p'); do
+            echo "exec-commands: NC_DOMAIN is ${NC_DOMAIN}, removing Talk signaling server ${server}..."
+            occ talk:signaling:delete "$server" || echo "exec-commands: WARNING: could not remove ${server}, continuing"
+        done
+        ;;
+esac
 
 # The nc_aio_tools bind mount only puts the app on disk; Nextcloud still has to be
 # told it exists. Replaces the one-time manual `occ app:enable` step.
