@@ -192,7 +192,11 @@ fi
 #   av_stream_max_length -- how much of a file is streamed to clamd
 # Both are bytes. Files above the cap are accepted by Nextcloud WITHOUT being
 # scanned, so raising it trades throughput for coverage.
-if [ -n "${CLAMAV_MAX_FILE_SIZE:-}" ]; then
+#
+# Only when ClamAV is on. With it off the app is disabled above, and running this
+# anyway wrote antivirus settings and logged "capping ClamAV scanning" on every start,
+# which reads as a scan still running.
+if [ "${CLAMAV_ENABLED:-}" = "yes" ] && [ -n "${CLAMAV_MAX_FILE_SIZE:-}" ]; then
     echo "exec-commands: capping ClamAV scanning at ${CLAMAV_MAX_FILE_SIZE} bytes..."
     occ config:app:set files_antivirus av_max_file_size --value="$CLAMAV_MAX_FILE_SIZE"
     occ config:app:set files_antivirus av_stream_max_length --value="$CLAMAV_MAX_FILE_SIZE"
