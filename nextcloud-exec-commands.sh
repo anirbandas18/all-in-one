@@ -202,4 +202,32 @@ if [ "${CLAMAV_ENABLED:-}" = "yes" ] && [ -n "${CLAMAV_MAX_FILE_SIZE:-}" ]; then
     occ config:app:set files_antivirus av_stream_max_length --value="$CLAMAV_MAX_FILE_SIZE"
 fi
 
+# Nextcloud's own application log (JSON, one object per line) on this container's
+# stdout, so `docker logs` shows it, in ADDITION to the file the Log Reader UI reads.
+# AIO's only built-in way to reach stdout is NEXTCLOUD_LOG_TYPE=errorlog, which
+# replaces the file and leaves the UI with nothing to show, so the file stays and is
+# followed instead. This script exits when it is done but its stdout is the
+# supervisord pipe for this program, which run-exec-commands.sh keeps open for the
+# life of the container, so a background tail started here keeps writing to it.
+# -n 0: only new entries, because stdout already keeps earlier runs of this container.
+# With log_type=errorlog (NEXTCLOUD_LOG_TYPE) the entries are on stderr already, skip.
+if [ "$(occ config:system:get log_type 2>/dev/null)" = "file" ]; then
+    app_logfile="$(occ config:system:get logfile 2>/dev/null)"
+    stream_pid_file=/tmp/nextcloud-log-stream.pid
+    if [ -n "$app_logfile" ]; then
+        # /tmp survives a plain container restart while PIDs start over, so a bare
+        # `kill -0` on the saved PID could hit an unrelated process and skip the stream.
+        # Check that the PID is really our tail.
+        stream_pid="$(cat "$stream_pid_file" 2>/dev/null || true)"
+        if [ -n "$stream_pid" ] && tr '\0' ' ' < "/proc/$stream_pid/cmdline" 2>/dev/null | grep -qF "tail -n 0 -F $app_logfile"; then
+            echo "exec-commands: Nextcloud log already streaming to stdout"
+        else
+            touch "$app_logfile" 2>/dev/null || true
+            tail -n 0 -F "$app_logfile" &
+            echo $! > "$stream_pid_file"
+            echo "exec-commands: streaming ${app_logfile} to stdout"
+        fi
+    fi
+fi
+
 echo "exec-commands: done."

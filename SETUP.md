@@ -49,6 +49,11 @@ What makes that work, and the limits it brings:
   `localhost` or `*.localhost`. Calls work for small groups. Call recording needs the
   hosted server and does not work in this mode. To get both back, use a real hostname
   (hosts-file entry or DNS) as `NC_DOMAIN`.
+- Nextcloud's JSON application log is on the container's stdout
+  (`docker compose logs nextcloud-aio-nextcloud`, one JSON object per line) as well as in
+  the log file the Log Reader UI reads. `nextcloud-exec-commands.sh` follows the file with
+  `tail -F` from container start, so only entries written after start appear. Don't set
+  `NEXTCLOUD_LOG_TYPE=errorlog` to get this: it replaces the file and empties the UI.
 - Admin > Overview shows a push-server warning (`notify_push:self-test` fails for the same
   reason). Browsers still connect to the push endpoint.
 - ClamAV is off. To turn it on set `CLAMAV_ENABLED="yes"` and add `clamav` to
