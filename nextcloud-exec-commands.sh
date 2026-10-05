@@ -159,4 +159,18 @@ if [ -n "${CLAMAV_MAX_FILE_SIZE:-}" ]; then
     occ config:app:set files_antivirus av_stream_max_length --value="$CLAMAV_MAX_FILE_SIZE"
 fi
 
+# First-login popups. firstrunwizard shows both the "What's new in Nextcloud Hub"
+# slideshow and the stock-branded "About" dialog on login; survey_client shows the
+# "help improve Nextcloud" usage-survey banner. Neither fits a branded deployment.
+#
+# This has to live here, not in Containers/nextcloud/entrypoint.sh: this stack runs
+# the published aio-nextcloud image, so local edits to that entrypoint never execute.
+# Re-run on every start because image upgrades re-enable shipped apps.
+for app in firstrunwizard survey_client; do
+    if occ app:list --enabled | grep -q "^  - ${app}:"; then
+        echo "exec-commands: disabling ${app}..."
+        occ app:disable "$app" || echo "exec-commands: WARNING: could not disable ${app}, continuing"
+    fi
+done
+
 echo "exec-commands: done."
