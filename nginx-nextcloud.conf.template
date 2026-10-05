@@ -32,33 +32,49 @@ server {
     ssl_certificate     /etc/nginx/certs/${NC_DOMAIN}.crt;
     ssl_certificate_key /etc/nginx/certs/${NC_DOMAIN}.key;
 
+    # Proxy settings live at server level so every location below inherits them.
+    # nginx only inherits proxy_set_header into a location that sets none of its
+    # own, so keep these out of the location blocks.
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    # Nextcloud AIO expects this to say "https" even though the hop to
+    # nextcloud-aio-apache is plain HTTP -- the browser-facing connection is what
+    # matters here.
+    proxy_set_header X-Forwarded-Proto https;
+
+    client_max_body_size 0;
+    proxy_read_timeout 3600s;
+
+    # Stream request bodies and upstream responses straight through instead of
+    # spooling them to disk first, as AIO's reverse-proxy docs recommend. With
+    # buffering on, a large PUT is written to disk in full before Nextcloud sees
+    # a byte of it, so uploads stall.
+    proxy_request_buffering off;
+    proxy_buffering off;
+
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    # Only forward an upgrade when the client actually asked for one -- see the
+    # map{} above. A bare "Connection: upgrade" on every request stops normal
+    # requests from being kept alive, so each one opens a fresh connection.
+    proxy_set_header Connection $connection_upgrade;
+
     location / {
         # nextcloud-aio-apache is not published to the host -- this reaches it over
         # the internal docker network by service name.
         proxy_pass http://nextcloud-aio-apache:${APACHE_PORT};
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        # Nextcloud AIO expects this to say "https" even though the hop to
-        # nextcloud-aio-apache above is plain HTTP -- the browser-facing connection
-        # is what matters here.
-        proxy_set_header X-Forwarded-Proto https;
+    }
 
-        client_max_body_size 0;
-        proxy_read_timeout 3600s;
-
-        # Stream request bodies and upstream responses straight through instead of
-        # spooling them to disk first, as AIO's reverse-proxy docs recommend. With
-        # buffering on, a large PUT is written to disk in full before Nextcloud sees
-        # a byte of it, so uploads stall.
-        proxy_request_buffering off;
-        proxy_buffering off;
-
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        # Only forward an upgrade when the client actually asked for one -- see the
-        # map{} above. A bare "Connection: upgrade" on every request stops normal
-        # requests from being kept alive, so each one opens a fresh connection.
-        proxy_set_header Connection $connection_upgrade;
+    # The "X MB of Y MB used" bar in the Files sidebar. Nextcloud sends this with
+    # Cache-Control max-age=300 (files ApiController::getStorageStats), so the
+    # browser kept showing the old figure for up to 5 minutes after an upload or
+    # delete. The Files app already re-fetches it on every file change; it just
+    # needs the browser to actually go to the server.
+    location = /apps/files/api/v1/stats {
+        proxy_pass http://nextcloud-aio-apache:${APACHE_PORT};
+        proxy_hide_header Cache-Control;
+        proxy_hide_header Expires;
+        add_header Cache-Control "no-store" always;
     }
 }
