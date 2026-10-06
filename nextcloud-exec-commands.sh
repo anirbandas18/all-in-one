@@ -39,12 +39,51 @@ done
 # Collabora error. Anything added here should be similarly tolerant.
 if [ "${COLLABORA_ENABLED:-}" = "yes" ]; then
     if occ app:list --enabled | grep -q 'richdocuments'; then
+        # Same call upstream AIO makes (php/containers.json): discovery and WOPI
+        # callbacks go to apache's internal HTTP listener (23973) by its docker
+        # network alias, never through NC_DOMAIN. With NC_DOMAIN=localhost that name
+        # would point at the calling container itself, and any other name would need a
+        # certificate it can verify. Browsers still reach Collabora at
+        # https://${NC_DOMAIN}, because Collabora builds those URLs from server_name.
         echo "exec-commands: activating Collabora config..."
-        occ richdocuments:activate-config || echo "exec-commands: WARNING: richdocuments:activate-config failed, continuing"
+        occ richdocuments:activate-config \
+            --wopi-url='http://nextcloud-aio-apache.nextcloud-aio:23973' \
+            --callback-url='http://nextcloud-aio-apache.nextcloud-aio:23973' \
+            || echo "exec-commands: WARNING: richdocuments:activate-config failed, continuing"
     else
         echo "exec-commands: COLLABORA_ENABLED=yes but richdocuments is not installed, skipping its config"
     fi
 fi
+
+# ClamAV off: disable the antivirus app too. REMOVE_DISABLED_APPS=no (required, see
+# .env) means AIO never disables it, and files_antivirus left enabled with no clamd
+# behind it rejects every upload with "No connection to anti virus". Idempotent, and
+# non-fatal when the app was never installed.
+if [ "${CLAMAV_ENABLED:-}" != "yes" ]; then
+    if occ app:list --enabled | grep -q '^  - files_antivirus:'; then
+        echo "exec-commands: ClamAV is off, disabling files_antivirus..."
+        occ app:disable files_antivirus || echo "exec-commands: WARNING: could not disable files_antivirus, continuing"
+    fi
+fi
+
+# Talk on a localhost NC_DOMAIN: drop the hosted signaling server AIO registers.
+# AIO registers it as https://$NC_DOMAIN/standalone-signaling/, and Nextcloud (PHP, so
+# libcurl) calls that URL itself whenever a conversation is created or changes. libcurl
+# resolves `localhost` and `*.localhost` to loopback without reading /etc/hosts, so
+# inside this container the call lands on the container itself and every conversation
+# create fails with "cURL error 7: Failed to connect to localhost:443". Browsers and
+# the signaling container reach the endpoint fine, which is why this only shows up
+# server-side. Without the server entry Talk uses its built-in signaling: calls work,
+# suited to small groups, and call recording (which needs the hosted server) is off.
+# AIO re-adds the entry on every start, so this runs every start as well.
+case "${NC_DOMAIN:-}" in
+    localhost|*.localhost)
+        for server in $(occ talk:signaling:list --output=plain 2>/dev/null | sed -n 's/^ *server: //p'); do
+            echo "exec-commands: NC_DOMAIN is ${NC_DOMAIN}, removing Talk signaling server ${server}..."
+            occ talk:signaling:delete "$server" || echo "exec-commands: WARNING: could not remove ${server}, continuing"
+        done
+        ;;
+esac
 
 # The nc_aio_tools bind mount only puts the app on disk; Nextcloud still has to be
 # told it exists. Replaces the one-time manual `occ app:enable` step.
@@ -153,10 +192,42 @@ fi
 #   av_stream_max_length -- how much of a file is streamed to clamd
 # Both are bytes. Files above the cap are accepted by Nextcloud WITHOUT being
 # scanned, so raising it trades throughput for coverage.
-if [ -n "${CLAMAV_MAX_FILE_SIZE:-}" ]; then
+#
+# Only when ClamAV is on. With it off the app is disabled above, and running this
+# anyway wrote antivirus settings and logged "capping ClamAV scanning" on every start,
+# which reads as a scan still running.
+if [ "${CLAMAV_ENABLED:-}" = "yes" ] && [ -n "${CLAMAV_MAX_FILE_SIZE:-}" ]; then
     echo "exec-commands: capping ClamAV scanning at ${CLAMAV_MAX_FILE_SIZE} bytes..."
     occ config:app:set files_antivirus av_max_file_size --value="$CLAMAV_MAX_FILE_SIZE"
     occ config:app:set files_antivirus av_stream_max_length --value="$CLAMAV_MAX_FILE_SIZE"
+fi
+
+# Nextcloud's own application log (JSON, one object per line) on this container's
+# stdout, so `docker logs` shows it, in ADDITION to the file the Log Reader UI reads.
+# AIO's only built-in way to reach stdout is NEXTCLOUD_LOG_TYPE=errorlog, which
+# replaces the file and leaves the UI with nothing to show, so the file stays and is
+# followed instead. This script exits when it is done but its stdout is the
+# supervisord pipe for this program, which run-exec-commands.sh keeps open for the
+# life of the container, so a background tail started here keeps writing to it.
+# -n 0: only new entries, because stdout already keeps earlier runs of this container.
+# With log_type=errorlog (NEXTCLOUD_LOG_TYPE) the entries are on stderr already, skip.
+if [ "$(occ config:system:get log_type 2>/dev/null)" = "file" ]; then
+    app_logfile="$(occ config:system:get logfile 2>/dev/null)"
+    stream_pid_file=/tmp/nextcloud-log-stream.pid
+    if [ -n "$app_logfile" ]; then
+        # /tmp survives a plain container restart while PIDs start over, so a bare
+        # `kill -0` on the saved PID could hit an unrelated process and skip the stream.
+        # Check that the PID is really our tail.
+        stream_pid="$(cat "$stream_pid_file" 2>/dev/null || true)"
+        if [ -n "$stream_pid" ] && tr '\0' ' ' < "/proc/$stream_pid/cmdline" 2>/dev/null | grep -qF "tail -n 0 -F $app_logfile"; then
+            echo "exec-commands: Nextcloud log already streaming to stdout"
+        else
+            touch "$app_logfile" 2>/dev/null || true
+            tail -n 0 -F "$app_logfile" &
+            echo $! > "$stream_pid_file"
+            echo "exec-commands: streaming ${app_logfile} to stdout"
+        fi
+    fi
 fi
 
 echo "exec-commands: done."

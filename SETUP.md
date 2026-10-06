@@ -1,5 +1,74 @@
 # Setup steps
 
+## Quick start (any machine with Docker)
+
+```sh
+docker compose up
+```
+
+Then open **https://localhost** and accept the browser's self-signed certificate
+warning. The login is `admin` / `change-me` (`NEXTCLOUD_PASSWORD` in `.env`). Nothing
+else is needed: no hosts-file entry, no cert generation, no path edits. The first start
+installs Nextcloud and takes a few minutes, and `https://localhost` answers 502 until it
+finishes.
+
+What makes that work, and the limits it brings:
+
+- `.env` is committed with placeholder secrets and `NC_DOMAIN=localhost`. Replace the
+  secrets before the first `up` if you want real ones. The database and S3 users are
+  created from them on first boot, so later edits do not take effect.
+- `tls/localhost.crt` and `tls/localhost.key` are a committed self-signed pair, valid
+  for ten years, with SAN `localhost`, `127.0.0.1` and `0.0.0.0` only. `james-conf/keystore`
+  is committed for the same reason. Both are throwaway dev material and are deliberately
+  in git. Regenerate the cert with:
+  ```sh
+  cat > /tmp/localhost-san.cnf <<'EOF'
+  [req]
+  distinguished_name = dn
+  x509_extensions = v3
+  prompt = no
+  [dn]
+  CN = localhost
+  [v3]
+  subjectAltName = DNS:localhost, IP:127.0.0.1, IP:0.0.0.0
+  basicConstraints = critical, CA:TRUE
+  keyUsage = critical, digitalSignature, keyEncipherment, keyCertSign
+  extendedKeyUsage = serverAuth
+  EOF
+  openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+    -keyout tls/localhost.key -out tls/localhost.crt -config /tmp/localhost-san.cnf
+  ```
+- Inside a container `localhost` is the container itself, so containers never use
+  `https://localhost`. Collabora's discovery and WOPI callbacks, and Whiteboard's
+  Nextcloud URL, go over plain HTTP to `nextcloud-aio-apache.nextcloud-aio:23973`, a
+  network alias on the apache service that mirrors upstream AIO's internal listener.
+- **Talk runs on its built-in signaling, not the hosted signaling server.** Nextcloud
+  calls that server over `https://localhost/...` from PHP, where libcurl resolves
+  `localhost` to loopback, so every conversation create failed with `cURL error 7`.
+  `nextcloud-exec-commands.sh` removes the server entry whenever `NC_DOMAIN` is
+  `localhost` or `*.localhost`. Calls work for small groups. Call recording needs the
+  hosted server and does not work in this mode. To get both back, use a real hostname
+  (hosts-file entry or DNS) as `NC_DOMAIN`.
+- Nextcloud's JSON application log is on the container's stdout
+  (`docker compose logs nextcloud-aio-nextcloud`, one JSON object per line) as well as in
+  the log file the Log Reader UI reads. `nextcloud-exec-commands.sh` follows the file with
+  `tail -F` from container start, so only entries written after start appear. Don't set
+  `NEXTCLOUD_LOG_TYPE=errorlog` to get this: it replaces the file and empties the UI.
+- Admin > Overview shows a push-server warning (`notify_push:self-test` fails for the same
+  reason). Browsers still connect to the push endpoint.
+- ClamAV is off. To turn it on set `CLAMAV_ENABLED="yes"` and add `clamav` to
+  `COMPOSE_PROFILES`. To turn it off again also run
+  `occ app:disable files_antivirus`, which `nextcloud-exec-commands.sh` now does on
+  start, otherwise every upload fails with "No connection to anti virus".
+- Collabora has no `remote_font_config.url`, so fonts an admin uploads in Nextcloud do
+  not reach the editor.
+- `DEFAULT_QUOTA=50 MB` is smaller than the default welcome files Nextcloud gives the
+  admin account (about 62 MB), so the admin starts out over quota and uploads return 507
+  until the quota is raised (`occ user:setting admin files quota none`).
+
+The sections below are the original step-by-step setup for a real hostname with a real
+or self-generated certificate. Use them if you change `NC_DOMAIN` away from `localhost`.
+
 This is Nextcloud AIO ("manual install" method) with all optional features enabled:
 Talk, Talk Recording, Collabora, ClamAV, Imaginary, Fulltextsearch, Whiteboard.
 

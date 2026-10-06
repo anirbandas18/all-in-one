@@ -106,6 +106,17 @@ services:
       # nc_aio_tools custom app's bind mount below needs to be layered in
       # here too, read-only -- see the matching mount on nextcloud-aio-nextcloud.
       - ./nextcloud-custom-apps/nc_aio_tools:/var/www/html/custom_apps/nc_aio_tools:ro
+    # Upstream AIO's network is literally named `nextcloud-aio`, which is how the
+    # Caddyfile's internal listener `http://nextcloud-aio-apache.nextcloud-aio:23973`
+    # resolves for Collabora's WOPI callbacks. This project's network is
+    # `<project>_default`, so the same name is provided as an alias instead. Collabora's
+    # aliasgroup1 and the richdocuments wopi/callback URLs (nextcloud-exec-commands.sh)
+    # all point at it, which keeps document traffic on plain HTTP inside the network
+    # with no dependency on NC_DOMAIN resolving or on a certificate.
+    networks:
+      default:
+        aliases:
+          - nextcloud-aio-apache.nextcloud-aio
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -290,7 +301,7 @@ services:
     volumes:
       - nextcloud_aio_nextcloud:/var/www/html:rw
       - ${NEXTCLOUD_DATADIR}:/mnt/ncdata:rw
-      - ${NEXTCLOUD_MOUNT}:${NEXTCLOUD_MOUNT}:rw
+      - ${NEXTCLOUD_MOUNT_DIR}:${NEXTCLOUD_MOUNT}:rw
       - ${NEXTCLOUD_TRUSTED_CACERTS_DIR}:/usr/local/share/ca-certificates:ro
       # Bind-mounted as a single subdirectory (not the whole custom_apps dir)
       # so it doesn't shadow the Google/OneDrive integration apps that already
@@ -485,7 +496,11 @@ services:
       - "9980"
     environment:
       - aliasgroup1=https://${NC_DOMAIN}:${NC_HTTPS_PORT},http://nextcloud-aio-apache.nextcloud-aio:23973
-      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:logging.disable_server_audit=true --o:welcome.enable=false --o:fetch_update_check=0 --o:allow_update_popup=false --o:remote_font_config.url=https://${NC_DOMAIN}/apps/richdocuments/settings/fonts.json --o:net.post_allow.host[0]=.+
+      # No remote_font_config.url on purpose: Collabora only accepts an HTTPS one, and
+      # upstream's https://${NC_DOMAIN}/... points back at the Collabora container
+      # itself when NC_DOMAIN=localhost, so it only produced an error every minute.
+      # The cost is that fonts an admin uploads in Nextcloud don't reach the editor.
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true --o:logging.disable_server_audit=true --o:welcome.enable=false --o:fetch_update_check=0 --o:allow_update_popup=false --o:net.post_allow.host[0]=.+
       - dictionaries=${COLLABORA_DICTIONARIES}
       - AIO_LOG_LEVEL
       - TZ=${TIMEZONE}
@@ -807,7 +822,7 @@ services:
     environment:
       - AIO_LOG_LEVEL
       - TZ=${TIMEZONE}
-      - NEXTCLOUD_URL=https://${NC_DOMAIN}
+      - NEXTCLOUD_URL=http://nextcloud-aio-apache.nextcloud-aio:23973
       - JWT_SECRET_KEY=${WHITEBOARD_SECRET}
       - STORAGE_STRATEGY=redis
       - REDIS_HOST=nextcloud-aio-redis
