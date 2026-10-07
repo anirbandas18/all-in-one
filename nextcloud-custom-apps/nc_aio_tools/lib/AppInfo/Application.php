@@ -6,6 +6,7 @@ namespace OCA\NcAioTools\AppInfo;
 
 use OCA\NcAioTools\Listener\BrandingAssetsListener;
 use OCA\NcAioTools\Listener\EnforceUserLimitListener;
+use OCA\NcAioTools\Listener\StorageInfoCacheListener;
 use OCA\NcAioTools\Listener\UserCountAuditListener;
 use OCA\NcAioTools\Listener\UsersPageAssetsListener;
 use OCP\AppFramework\App;
@@ -14,6 +15,10 @@ use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeLoginTemplateRenderedEvent;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
+use OCP\Files\Events\Node\NodeCopiedEvent;
+use OCP\Files\Events\Node\NodeDeletedEvent;
+use OCP\Files\Events\Node\NodeRenamedEvent;
+use OCP\Files\Events\Node\NodeWrittenEvent;
 use OCP\INavigationManager;
 use OCP\IURLGenerator;
 use OCP\User\Events\BeforeUserCreatedEvent;
@@ -38,6 +43,12 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(BeforeLoginTemplateRenderedEvent::class, BrandingAssetsListener::class);
 		$context->registerEventListener(UserCreatedEvent::class, UserCountAuditListener::class);
 		$context->registerEventListener(UserDeletedEvent::class, UserCountAuditListener::class);
+		// Clears core's 5-minute storage-usage cache on every file change, so the
+		// Files sidebar quota bar is current right after an upload or delete.
+		$context->registerEventListener(NodeWrittenEvent::class, StorageInfoCacheListener::class);
+		$context->registerEventListener(NodeDeletedEvent::class, StorageInfoCacheListener::class);
+		$context->registerEventListener(NodeRenamedEvent::class, StorageInfoCacheListener::class);
+		$context->registerEventListener(NodeCopiedEvent::class, StorageInfoCacheListener::class);
 	}
 
 	public function boot(IBootContext $context): void {

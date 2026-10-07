@@ -73,6 +73,7 @@ class BrandingAssetsListener implements IEventListener {
 		// early everywhere except the Files app.
 		Util::addScript(Application::APP_ID, 'files-workspaces');
 		Util::addScript(Application::APP_ID, 'files-detail-rail');
+		Util::addScript(Application::APP_ID, 'files-quota-refresh');
 
 		// Brand marks have to be emitted here rather than declared in the stylesheet.
 		// A relative url() inside a custom property resolves against the stylesheet
